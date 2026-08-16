@@ -356,7 +356,7 @@ class ProvisioningServiceTest {
         assertThat(service.resolveConnectionHost()).isEqualTo("localhost:27017");
 
         when(environment.getProperty("spring.mongodb.uri", "")).thenReturn("");
-        assertThat(service.resolveConnectionHost()).isEqualTo("localhost:9812");
+        assertThat(service.resolveConnectionHost()).isEqualTo("127.0.0.1:9812");
 
         when(environment.getProperty("app.mongo-public-host", ""))
                 .thenReturn("mongo.pkmprojects.online:9812");
