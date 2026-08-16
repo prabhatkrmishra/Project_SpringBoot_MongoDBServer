@@ -311,10 +311,16 @@ public class ProvisioningService {
     }
 
     /**
-     * Host portion for connection strings: derived from the active
-     * {@code spring.mongodb.uri} (e.g. Atlas cluster) or localhost:9812.
+     * Host portion for connection strings: the explicit
+     * {@code app.mongo-public-host} (e.g. {@code mongo.pkmprojects.online:9812})
+     * when set, otherwise derived from the active {@code spring.mongodb.uri}
+     * (e.g. Atlas cluster) or localhost:9812.
      */
     String resolveConnectionHost() {
+        String publicHost = environment.getProperty("app.mongo-public-host", "");
+        if (publicHost != null && !publicHost.isBlank()) {
+            return publicHost;
+        }
         String uri = environment.getProperty("spring.mongodb.uri", "");
         if (uri.isBlank()) {
             return "localhost:9812";

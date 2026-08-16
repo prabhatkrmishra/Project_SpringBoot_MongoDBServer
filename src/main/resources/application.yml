@@ -46,6 +46,11 @@ app:
   admin:
     username: ${APP_ADMIN_USERNAME:admin}
     password: ${APP_ADMIN_PASSWORD:admin}
+  # Public Mongo host used in the connection strings shown in the UI (set when
+  # Mongo is reachable via a domain name, e.g. behind a reverse proxy/tunnel).
+  # Add ":port" only if clients must reach a non-default port (drivers default
+  # to 27017). Empty by default: derived from spring.mongodb.uri / local fallback.
+  mongo-public-host: ${MONGODB_PUBLIC_HOST:}
   # Bundled mongo-express UI, reverse-proxied at /mongo-express (from .env)
   mongo-express:
     base-url: ${MONGO_EXPRESS_BASE_URL:http://localhost:9814/mongo-express}

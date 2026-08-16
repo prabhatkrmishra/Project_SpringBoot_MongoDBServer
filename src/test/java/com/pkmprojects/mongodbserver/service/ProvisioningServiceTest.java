@@ -346,6 +346,7 @@ class ProvisioningServiceTest {
 
     @Test
     void resolveConnectionHostStripsCredentialsAndQuery() {
+        when(environment.getProperty("app.mongo-public-host", "")).thenReturn("");
         when(environment.getProperty("spring.mongodb.uri", ""))
                 .thenReturn("mongodb+srv://root:root@cluster0.abcd.mongodb.net/?retryWrites=true&w=majority");
         assertThat(service.resolveConnectionHost()).isEqualTo("cluster0.abcd.mongodb.net");
@@ -356,6 +357,10 @@ class ProvisioningServiceTest {
 
         when(environment.getProperty("spring.mongodb.uri", "")).thenReturn("");
         assertThat(service.resolveConnectionHost()).isEqualTo("localhost:9812");
+
+        when(environment.getProperty("app.mongo-public-host", ""))
+                .thenReturn("mongo.pkmprojects.online:9812");
+        assertThat(service.resolveConnectionHost()).isEqualTo("mongo.pkmprojects.online:9812");
     }
 
     @Test
