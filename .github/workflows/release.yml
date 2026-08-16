@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.2.0). Must start with v.'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set version and build
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          mvn -B versions:set -DnewVersion="$VERSION" -DgenerateBackupPoms=false
+          mvn -B clean package -DskipTests -Dmaven.test.skip=true -DargLine=-Xmx1024m
+        env:
+          MAVEN_OPTS: "-Xmx2048m -XX:+UseG1GC"
+
+      - name: Locate JAR
+        id: jar
+        run: |
+          JAR=$(find target -maxdepth 1 -name "*.jar" ! -name "*sources*" ! -name "*javadoc*" | head -n1)
+          echo "path=$JAR" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$JAR")" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+
+          # Find the previous tag
+          PREV_TAG=$(git tag --sort=-version:refname | grep '^v' | sed -n '2p')
+
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..${TAG}"
+            HEADER="Changes since ${PREV_TAG}"
+          else
+            RANGE="$TAG"
+            HEADER="Initial release"
+          fi
+
+          echo "## ${HEADER}" > changelog.md
+          echo "" >> changelog.md
+
+          # Build a clean bullet list from commits
+          git log "$RANGE" --pretty=format:"- %s" --no-merges >> changelog.md
+
+          echo "" >> changelog.md
+          echo "---" >> changelog.md
+          echo "**Full diff**: [\`${PREV_TAG:-initial}...${TAG}\`](https://github.com/${{ github.repository }}/compare/${PREV_TAG:-$(git rev-list --max-parents=0 HEAD | head -1)}...${TAG})" >> changelog.md
+
+          echo "file=changelog.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          body_path: ${{ steps.changelog.outputs.file }}
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.version, '-') }}
+          files: ${{ steps.jar.outputs.path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

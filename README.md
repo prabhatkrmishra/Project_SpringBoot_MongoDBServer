@@ -161,6 +161,29 @@ java -jar mongodbserver-0.0.1-SNAPSHOT.jar --spring.profiles.active=atlas
 Connection strings shown in the UI are derived from the active
 `spring.mongodb.uri` host, so external apps connect to the same deployment.
 
+## Releases & deployment
+
+**Releasing** (`.github/workflows/release.yml`): tag a release and push it —
+GitHub builds the jar, sets the version from the tag, generates a changelog
+from commits since the previous tag, and attaches the jar to a GitHub Release:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+(Or trigger the **Release** workflow manually with a tag input.)
+
+**Auto-deploy** (`deploy/deploy.sh`): on the VPS, run once:
+
+```bash
+bash deploy/setup-cron.sh
+```
+
+A cron job then checks the latest GitHub Release every 5 minutes, downloads the
+new jar, stops the old process (tmux session `mongodbserver`) and starts the
+new one. Logs: `~/mongodbserver/deploy.log`.
+
 ## Architecture
 
 ```

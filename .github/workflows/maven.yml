@@ -1,0 +1,41 @@
+# Java CI with Maven: build + tests on every push/PR to main.
+# See https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
+
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        env:
+          MAVEN_OPTS: "-Xmx2048m -XX:+UseG1GC"
+        run: mvn -B clean package -DargLine=-Xmx1024m --file pom.xml
+
+      # Uploads the full dependency graph to GitHub to improve the quality of
+      # Dependabot alerts this repository can receive.
+      # Skipped on PRs — fork PRs cannot write to the dependency graph (403).
+      - name: Update dependency graph
+        if: github.event_name == 'push'
+        uses: advanced-security/maven-dependency-submission-action@v4
+        with:
+          ignore-maven-wrapper: true
