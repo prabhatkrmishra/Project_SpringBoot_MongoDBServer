@@ -26,6 +26,11 @@ spring:
 
 server:
   port: 9811
+  # Loopback-only by default: reach the app through a reverse proxy/tunnel
+  # (e.g. Cloudflare). Set SERVER_ADDRESS=0.0.0.0 to expose directly.
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  # Trust X-Forwarded-* set by the reverse proxy/tunnel (HTTPS scheme, real IP).
+  forward-headers-strategy: framework
 
 management:
   endpoints:
@@ -50,5 +55,6 @@ app:
   login-rate-limit:
     max-attempts: 5
     window: 15m
-    # Honor X-Forwarded-For only when a trusted reverse proxy is in front of the app
-    trust-x-forwarded-for: false
+    # Honor X-Forwarded-For only when a trusted reverse proxy is in front of the
+    # app (enable behind Cloudflare Tunnel; keep false when reachable directly).
+    trust-x-forwarded-for: ${RATE_LIMIT_TRUST_XFF:false}
