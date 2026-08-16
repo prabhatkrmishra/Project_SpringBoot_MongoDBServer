@@ -3,13 +3,12 @@ package com.pkmprojects.mongodbserver;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Shared Testcontainers wiring: a Mongo 8 server with a root user and a Redis
- * server, both wired into the Spring context via {@code @ServiceConnection}.
+ * Shared Testcontainers wiring: a Mongo 8 server with a root user, wired into
+ * the Spring context via {@code @ServiceConnection}.
  */
 @TestConfiguration(proxyBeanMethods = false)
 class TestcontainersConfiguration {
@@ -20,12 +19,6 @@ class TestcontainersConfiguration {
         return new MongoDBContainer(DockerImageName.parse("mongo:8"))
                 .withEnv("MONGO_INITDB_ROOT_USERNAME", "root")
                 .withEnv("MONGO_INITDB_ROOT_PASSWORD", "root");
-    }
-
-    @Bean
-    @ServiceConnection(name = "redis")
-    GenericContainer<?> redisContainer() {
-        return new GenericContainer<>(DockerImageName.parse("redis:8")).withExposedPorts(6379);
     }
 
 }

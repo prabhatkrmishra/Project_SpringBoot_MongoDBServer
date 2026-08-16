@@ -11,8 +11,7 @@ import java.util.List;
  * "show once" flash message after creation or password reset.
  *
  * <p>Serializable because the show-once message travels as a flash attribute,
- * and flash attributes are stored in the Redis-backed HTTP session (JDK
- * serialization).
+ * and flash attributes are stored in the HTTP session (JDK serialization).
  */
 public record DatabaseInfo(
         String dbName,

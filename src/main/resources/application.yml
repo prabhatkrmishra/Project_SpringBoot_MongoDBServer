@@ -9,14 +9,6 @@ spring:
     # Default database used by Spring Data repositories (provisioning metadata).
     database: mongodb_admin
 
-  data:
-    redis:
-      host: localhost
-      port: 9813
-
-  session:
-    store-type: redis
-
   thymeleaf:
     cache: false
   web:

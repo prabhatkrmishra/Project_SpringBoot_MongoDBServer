@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Multi-threaded lifecycle stress tests against a real MongoDB (auth enabled,
- * standalone) and Redis. The provisioning lifecycle (provision / reset / delete)
+ * standalone). The provisioning lifecycle (provision / reset / delete)
  * is a multi-step check-then-act sequence, so concurrent calls for the same
  * database name must be serialized by the service: exactly one provision can win,
  * and no interleaving may leave orphaned metadata, a user-less database, or a
@@ -62,10 +62,6 @@ class ProvisioningConcurrencyTest {
             // real server), so wait for the second "waiting for connections"
             .waitingFor(Wait.forLogMessage("(?i).*waiting for connections.*", 2));
 
-    @Container
-    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:8"))
-            .withExposedPorts(6379)
-            .waitingFor(Wait.forListeningPort());
     private final List<String> createdDatabases = new java.util.ArrayList<>();
     @Autowired
     private ProvisioningService provisioningService;
@@ -83,8 +79,6 @@ class ProvisioningConcurrencyTest {
     static void datasourceProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.mongodb.uri", () -> "mongodb://root:root@"
                 + mongo.getHost() + ":" + mongo.getMappedPort(27017) + "/?authSource=admin");
-        registry.add("spring.data.redis.host", redis::getHost);
-        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
     }
 
     @AfterEach

@@ -26,8 +26,7 @@ Spring MVC web UI.
 - **Export** — download any collection page as a JSON file.
 - **Audit trail** — every provision/reset/delete is recorded; view the last 10 on
   the dashboard or the full paginated history at `/activity`.
-- **Redis sessions** — HTTP sessions live in Redis, so the app is restart-safe.
-- **MongoDB + Redis + mongo-express** — all run via Docker Compose.
+- **MongoDB + mongo-express** — all run via Docker Compose.
 - **mongo-express web UI** — [mongo-express](https://github.com/mongo-express/mongo-express)
   is bundled in the stack, but only reachable through the app at `/mongo-express`
   (sidebar link), behind the same login; its container is loopback-bound with no
@@ -53,7 +52,7 @@ Spring MVC web UI.
    credentials used by the app to provision databases; `MONGO_EXPRESS_*` protect
    the mongo-express UI.
 
-2. Start MongoDB, Redis and mongo-express:
+2. Start MongoDB and mongo-express:
 
    ```bash
    docker compose up -d
@@ -76,10 +75,9 @@ Spring MVC web UI.
 
 ### Run from the compiled jar (no repo needed)
 
-The jar is only the web layer — it **connects to** MongoDB and Redis, it does
-not start them. Running `java -jar` on a fresh server with nothing else up will
-boot the app but every page fails: login 500s without Redis, provisioning
-errors without MongoDB.
+The jar is only the web layer — it **connects to** MongoDB, it does not start
+it. Running `java -jar` on a fresh server with nothing else up will boot the app
+but every page fails: provisioning errors without MongoDB.
 
 1. Build the jar once (from the repo):
 
@@ -103,12 +101,10 @@ errors without MongoDB.
    ```
 
 The jar connects to: MongoDB at `spring.data.mongodb.uri` (default
-`mongodb://<root>:<pass>@localhost:9812/?authSource=admin` from `.env`), Redis
-at `localhost:9813` (sessions — required, the app will not work without it),
-and the bundled mongo-express at `localhost:9814` (only needed for the
-`/mongo-express` sidebar UI; without it that page returns 502). Redis and
-mongo-express hosts are not configurable via `.env` yet — they are fixed at
-`localhost` in `application.yml`.
+`mongodb://<root>:<pass>@localhost:9812/?authSource=admin` from `.env`) and the
+bundled mongo-express at `localhost:9814` (only needed for the `/mongo-express`
+sidebar UI; without it that page returns 502). mongo-express hosts are not
+configurable via `.env` yet — fixed at `localhost` in `application.yml`.
 
 ## Using the provisioned database from your application
 
@@ -200,7 +196,7 @@ Controller  →  Service  →  Repository (MongoDB Java driver / Spring Data)
   database (never stores passwords).
 - `SecurityConfig` — form login, CSRF on, `@PreAuthorize` + route matchers for
   admin-only writes.
-- `LoginRateLimitFilter` — Redis-backed sliding-window brute-force protection on
+- `LoginRateLimitFilter` — in-process sliding-window brute-force protection on
   the login form, running ahead of the security chain.
 - `MongoExpressProxyFilter` — reverse-proxies the bundled mongo-express UI at
   `/mongo-express` behind the app's authentication.
@@ -218,10 +214,10 @@ Naming is validated and restricted to URL-safe characters; system databases
 ```
 
 - Unit tests for the validator, password generator, both services, and the
-  login rate-limiter filter.
+  login rate-limiter (filter + in-memory counter).
 - `@WebMvcTest` slices for the controllers (auth, CSRF, validation, error
   handling).
-- Testcontainers-backed tests (real MongoDB with auth + Redis) for the driver
+- Testcontainers-backed tests (real MongoDB with auth) for the driver
   repository and the full provision/reset/delete lifecycle, including a login
   rate-limit burst check. These are skipped automatically when Docker is
   unavailable.
@@ -229,7 +225,7 @@ Naming is validated and restricted to URL-safe characters; system databases
 ## Project layout
 
 ```
-compose.yaml                      # MongoDB + Redis + mongo-express (mongo-express loopback-bound)
+compose.yaml                      # MongoDB + mongo-express (mongo-express loopback-bound)
 .env / .env.example               # credentials (gitignored)
 src/main/java/com/pkmprojects/mongodbserver
   config/                         # Security, rate limiting, mongo-express proxy, properties, Clock
@@ -257,17 +253,16 @@ This project is built on the shoulders of the following open-source software:
 
 | Library | Used for | License |
 | --- | --- | --- |
-| [Spring Boot](https://spring.io/projects/spring-boot) 4.1 / Spring Framework 7 | Web, security, data, session, validation starters | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
+| [Spring Boot](https://spring.io/projects/spring-boot) 4.1 / Spring Framework 7 | Web, security, data, validation starters | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) |
 | [Spring Security](https://spring.io/projects/spring-security) | Form login, CSRF, method security, rate-limit filter ordering | Apache-2.0 |
 | [Spring Data MongoDB](https://spring.io/projects/spring-data-mongodb) | Repository metadata + driver gateway | Apache-2.0 |
-| [Spring Data Redis](https://spring.io/projects/spring-data-redis) | Sessions + login rate-limit counter | Apache-2.0 |
 | [MongoDB Java Driver](https://www.mongodb.com/docs/drivers/java/) | Direct database/user administration | Apache-2.0 |
 | [Thymeleaf](https://www.thymeleaf.org/) + `thymeleaf-extras-springsecurity6` | Server-rendered views | Apache-2.0 |
 | [springboot4-dotenv](https://github.com/paulschwarz/spring-dotenv) | `.env` loading | MIT |
 | [Bootstrap](https://getbootstrap.com/) 5.3.8 (WebJar) | UI styling | MIT |
 | [Bootstrap Icons](https://icons.getbootstrap.com/) 1.13.1 (WebJar) | UI icons | MIT |
-| [Testcontainers](https://testcontainers.com/) | Integration tests against real MongoDB + Redis | MIT |
-| [MongoDB](https://www.mongodb.com/) / [Redis](https://redis.io/) / [mongo-express](https://github.com/mongo-express/mongo-express) (Docker images) | Local dev stack | SSPL / RSALv2 / MIT (respectively) |
+| [Testcontainers](https://testcontainers.com/) | Integration tests against real MongoDB | MIT |
+| [MongoDB](https://www.mongodb.com/) / [mongo-express](https://github.com/mongo-express/mongo-express) (Docker images) | Local dev stack | SSPL / MIT (respectively) |
 
 ## License
 

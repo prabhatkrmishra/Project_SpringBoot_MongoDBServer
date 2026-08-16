@@ -5,12 +5,12 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.pkmprojects.mongodbserver.repository.ManagedDatabaseRepository;
 import com.pkmprojects.mongodbserver.repository.MongoDatabaseRepository;
-import jakarta.servlet.http.Cookie;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
@@ -34,9 +34,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * End-to-end flow against real MongoDB (auth enabled, standalone - see
  * {@code MongoDatabaseRepositoryTest} for why not the Testcontainers
- * {@code MongoDBContainer} replica-set image) and Redis: login, provision a
- * database, connect as the provisioned user, reset the password (old one stops
- * working), and delete everything. Skipped when Docker is unavailable.
+ * {@code MongoDBContainer} replica-set image): login, provision a database,
+ * connect as the provisioned user, reset the password (old one stops working),
+ * and delete everything. Skipped when Docker is unavailable.
  */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
@@ -56,10 +56,6 @@ class MongodbserverApplicationTests {
             // real server), so wait for the second "waiting for connections"
             .waitingFor(Wait.forLogMessage("(?i).*waiting for connections.*", 2));
 
-    @Container
-    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:8"))
-            .withExposedPorts(6379)
-            .waitingFor(Wait.forListeningPort());
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -71,8 +67,6 @@ class MongodbserverApplicationTests {
     static void datasourceProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.mongodb.uri", () -> "mongodb://root:root@"
                 + mongo.getHost() + ":" + mongo.getMappedPort(27017) + "/?authSource=admin");
-        registry.add("spring.data.redis.host", redis::getHost);
-        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
     }
 
     @Test
@@ -90,12 +84,12 @@ class MongodbserverApplicationTests {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/"))
                 .andReturn();
-        Cookie session = login.getResponse().getCookie("SESSION");
+        MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
         assertNotNull(session);
 
         // provision a database with explicit credentials
         mockMvc.perform(post("/databases")
-                        .cookie(session)
+                        .session(session)
                         .param("dbName", "testapp")
                         .param("userName", "testapp_user")
                         .param("password", "firstsecret123")
@@ -104,7 +98,7 @@ class MongodbserverApplicationTests {
                 .andExpect(redirectedUrl("/databases/testapp"));
 
         // the detail page shows the show-once connection string
-        mockMvc.perform(get("/databases/testapp").cookie(session))
+        mockMvc.perform(get("/databases/testapp").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("mongodb://testapp_user:firstsecret123@")));
 
@@ -116,7 +110,7 @@ class MongodbserverApplicationTests {
 
         // reset the password
         mockMvc.perform(post("/databases/testapp/reset")
-                        .cookie(session)
+                        .session(session)
                         .param("password", "secondsecret456")
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
@@ -134,7 +128,7 @@ class MongodbserverApplicationTests {
         }
 
         // delete the database: user + metadata gone too
-        mockMvc.perform(post("/databases/testapp/delete").cookie(session).with(csrf()))
+        mockMvc.perform(post("/databases/testapp/delete").session(session).with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/"));
 
