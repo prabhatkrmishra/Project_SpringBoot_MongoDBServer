@@ -314,7 +314,7 @@ public class ProvisioningService {
      * Host portion for connection strings: the explicit
      * {@code app.mongo-public-host} (e.g. {@code mongo.pkmprojects.online:9812})
      * when set, otherwise derived from the active {@code spring.mongodb.uri}
-     * (e.g. Atlas cluster) or localhost:9812.
+     * (e.g. Atlas cluster) or 127.0.0.1:9812.
      */
     String resolveConnectionHost() {
         String publicHost = environment.getProperty("app.mongo-public-host", "");
@@ -323,11 +323,11 @@ public class ProvisioningService {
         }
         String uri = environment.getProperty("spring.mongodb.uri", "");
         if (uri.isBlank()) {
-            return "localhost:9812";
+            return "127.0.0.1:9812";
         }
         int at = uri.lastIndexOf('@');
         if (at < 0) {
-            return "localhost:9812";
+            return "127.0.0.1:9812";
         }
         String rest = uri.substring(at + 1);
         int slash = rest.indexOf('/');

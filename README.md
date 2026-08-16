@@ -101,10 +101,10 @@ but every page fails: provisioning errors without MongoDB.
    ```
 
 The jar connects to: MongoDB at `spring.data.mongodb.uri` (default
-`mongodb://<root>:<pass>@localhost:9812/?authSource=admin` from `.env`) and the
-bundled mongo-express at `localhost:9814` (only needed for the `/mongo-express`
+`mongodb://<root>:<pass>@127.0.0.1:9812/?authSource=admin` from `.env`) and the
+bundled mongo-express at `127.0.0.1:9814` (only needed for the `/mongo-express`
 sidebar UI; without it that page returns 502). mongo-express hosts are not
-configurable via `.env` yet — fixed at `localhost` in `application.yml`.
+configurable via `.env` yet — fixed at `127.0.0.1` in `application.yml`.
 
 ## Using the provisioned database from your application
 
@@ -112,7 +112,7 @@ Example (Node.js):
 
 ```js
 const { MongoClient } = require("mongodb");
-const client = new MongoClient("mongodb://myapp_user:MyStrongPass@localhost:9812/myapp?authSource=myapp");
+const client = new MongoClient("mongodb://myapp_user:MyStrongPass@127.0.0.1:9812/myapp?authSource=myapp");
 await client.connect();
 ```
 
@@ -125,7 +125,7 @@ This app is only the **control plane**: it provisions databases, issues
 per-database credentials, and rotates/deletes them. It is **not** a proxy and
 never sits in the data path.
 
-- The connection string points straight at MongoDB (`localhost:9812` locally,
+- The connection string points straight at MongoDB (`127.0.0.1:9812` locally,
   or your Atlas host when the `atlas` profile is active), so your application
   talks to MongoDB directly over the Mongo wire protocol.
 - The provisioned user authenticates against its own database (explicit

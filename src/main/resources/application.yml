@@ -5,7 +5,7 @@ spring:
   mongodb:
     # Local MongoDB (Docker Compose). The app connects as the Mongo root/admin user
     # to provision databases and per-database users.
-    uri: ${MONGODB_URI:mongodb://${MONGODB_ROOT_USERNAME:root}:${MONGODB_ROOT_PASSWORD:root}@localhost:9812/?authSource=admin}
+    uri: ${MONGODB_URI:mongodb://${MONGODB_ROOT_USERNAME:root}:${MONGODB_ROOT_PASSWORD:root}@127.0.0.1:9812/?authSource=admin}
     # Default database used by Spring Data repositories (provisioning metadata).
     database: mongodb_admin
 
@@ -45,7 +45,7 @@ app:
   mongo-public-host: ${MONGODB_PUBLIC_HOST:}
   # Bundled mongo-express UI, reverse-proxied at /mongo-express (from .env)
   mongo-express:
-    base-url: ${MONGO_EXPRESS_BASE_URL:http://localhost:9814/mongo-express}
+    base-url: ${MONGO_EXPRESS_BASE_URL:http://127.0.0.1:9814/mongo-express}
     username: ${MONGO_EXPRESS_USERNAME:admin}
     password: ${MONGO_EXPRESS_PASSWORD:admin}
   # Brute-force protection on the login form (attempts per IP+username per window)
