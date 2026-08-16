@@ -1,0 +1,47 @@
+services:
+  mongo:
+    image: mongo:8
+    container_name: mongodbserver-mongo
+    restart: unless-stopped
+    ports:
+      - "9812:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-root}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok", "-u", "${MONGODB_ROOT_USERNAME:-root}", "-p", "${MONGODB_ROOT_PASSWORD:-root}", "--authenticationDatabase", "admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:8
+    container_name: mongodbserver-redis
+    restart: unless-stopped
+    ports:
+      - "9813:6379"
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongodbserver-mongo-express
+    restart: unless-stopped
+    ports:
+      # Loopback only: the UI is reachable through the admin app proxy at /mongo-express
+      - "127.0.0.1:9814:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_ROOT_USERNAME:-root}:${MONGODB_ROOT_PASSWORD:-root}@mongo:27017/?authSource=admin
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD:-admin}
+      ME_CONFIG_SITE_BASEURL: /mongo-express
+    depends_on:
+      - mongo
+
+volumes:
+  mongo-data:
+  redis-data:

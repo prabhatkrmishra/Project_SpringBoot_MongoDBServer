@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Sign in')}"></head>
+<body class="auth-page">
+    <div class="auth-wrap">
+        <div class="auth-card">
+            <div class="auth-main">
+                <div class="text-center mb-5">
+                    <div class="d-flex justify-content-center mb-4">
+                        <span class="auth-logo"><i class="bi bi-database-gear"></i></span>
+                    </div>
+                    <h1 class="h3 mb-2 fw-bold">Welcome back</h1>
+                    <p class="text-body-secondary mb-0">Sign in to access your database dashboard</p>
+                </div>
+
+                <div class="alert alert-danger flash mb-4" role="alert" th:if="${param.error}">
+                    <i class="bi bi-exclamation-circle me-2"></i> Invalid username or password
+                </div>
+                <div class="alert alert-success flash mb-4" role="alert" th:if="${param.logout}">
+                    <i class="bi bi-check-circle me-2"></i> You have been signed out
+                </div>
+
+                <form method="post" th:action="@{/login}">
+                    <div class="mb-4">
+                        <label class="form-label" for="username">Username</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-white"><i class="bi bi-person text-secondary"></i></span>
+                            <input autocomplete="username" autofocus class="form-control" id="username"
+                                   name="username" placeholder="Enter your username" required type="text">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label" for="password">Password</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-white"><i class="bi bi-lock text-secondary"></i></span>
+                            <input autocomplete="current-password" class="form-control" id="password" name="password"
+                                   placeholder="Enter your password"
+                                   required type="password">
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-lg w-100 mb-4" type="submit">
+                        <i class="bi bi-box-arrow-in-right me-2"></i> Sign in
+                    </button>
+
+                    <div class="text-center">
+                        <p class="auth-security mb-0">
+                            <i class="bi bi-shield-check me-1"></i>
+                            <span class="text-body-secondary small">Secure admin console · All actions are audited</span>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

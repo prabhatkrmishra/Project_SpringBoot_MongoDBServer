@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: mongodb-server
+
+  mongodb:
+    # Local MongoDB (Docker Compose). The app connects as the Mongo root/admin user
+    # to provision databases and per-database users.
+    uri: ${MONGODB_URI:mongodb://${MONGODB_ROOT_USERNAME:root}:${MONGODB_ROOT_PASSWORD:root}@localhost:9812/?authSource=admin}
+    # Default database used by Spring Data repositories (provisioning metadata).
+    database: mongodb_admin
+
+  data:
+    redis:
+      host: localhost
+      port: 9813
+
+  session:
+    store-type: redis
+
+  thymeleaf:
+    cache: false
+  web:
+    error:
+      whitelabel:
+        enabled: false
+
+server:
+  port: 9811
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Web app admin account (from .env)
+app:
+  admin:
+    username: ${APP_ADMIN_USERNAME:admin}
+    password: ${APP_ADMIN_PASSWORD:admin}
+  # Bundled mongo-express UI, reverse-proxied at /mongo-express (from .env)
+  mongo-express:
+    base-url: ${MONGO_EXPRESS_BASE_URL:http://localhost:9814/mongo-express}
+    username: ${MONGO_EXPRESS_USERNAME:admin}
+    password: ${MONGO_EXPRESS_PASSWORD:admin}
+  # Brute-force protection on the login form (attempts per IP+username per window)
+  login-rate-limit:
+    max-attempts: 5
+    window: 15m
+    # Honor X-Forwarded-For only when a trusted reverse proxy is in front of the app
+    trust-x-forwarded-for: false

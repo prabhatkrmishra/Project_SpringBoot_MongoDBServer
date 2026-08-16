@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Database ' + ${database.dbName})}"></head>
+<body>
+    <div class="layout">
+        <aside th:replace="~{fragments/nav :: nav('database')}"></aside>
+
+        <div class="main">
+            <main th:replace="~{fragments/nav :: flash}"></main>
+
+            <main class="container-xxl py-4">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a class="link-primary" th:href="@{/}">Dashboard</a></li>
+                        <li class="breadcrumb-item active" th:text="${database.dbName}">database</li>
+                    </ol>
+                </nav>
+
+                <div class="card credential-card shadow-sm mb-4" th:if="${newCredentials}">
+                    <div class="card-body">
+                        <h3 class="h6 mb-1"><i class="bi bi-key-fill"></i> Connection string — shown only once</h3>
+                        <p class="text-body-secondary">Store it somewhere safe. The password cannot be recovered later
+                            (only reset). Connect to this database with:</p>
+                        <div class="credential-row">
+                            <pre class="credential-pre"><code th:text="${newCredentials.connectionString}">mongodb://user:pass@host/db</code></pre>
+                            <button class="btn btn-sm btn-outline-light copy-btn" th:attr="data-copy=${newCredentials.connectionString}"
+                                    type="button">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <section class="card shadow-sm mb-4">
+                    <div class="card-header bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h2 class="h5 mb-0">
+                            <i class="bi bi-database text-primary me-1"></i>
+                            <span th:text="${database.dbName}">database</span>
+                            <span class="badge badge-soft-success ms-2"
+                                  th:if="${database.provisioned}">provisioned</span>
+                            <span class="badge badge-soft-secondary ms-2"
+                                  th:if="${!database.provisioned}">external</span>
+                        </h2>
+                        <div class="d-flex gap-2" th:if="${canWrite}">
+                            <a class="btn btn-sm btn-outline-secondary"
+                               th:href="@{/databases/{name}/reset(name=${database.dbName})}"
+                               th:if="${database.provisioned}">
+                                <i class="bi bi-key"></i> Reset password
+                            </a>
+                            <a class="btn btn-sm btn-outline-danger"
+                               th:href="@{/databases/{name}/delete(name=${database.dbName})}">
+                                <i class="bi bi-trash"></i> Delete database
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <dl class="info-grid mb-0">
+                            <div>
+                                <dt>Database user</dt>
+                                <dd th:text="${database.userName} ?: '—'">user</dd>
+                            </div>
+                            <div>
+                                <dt>Roles</dt>
+                                <dd th:text="${#strings.listJoin(database.roles, ', ')} ?: '—'">readWrite:db</dd>
+                            </div>
+                            <div>
+                                <dt>Collections</dt>
+                                <dd th:text="${database.collectionsCount}">0</dd>
+                            </div>
+                            <div>
+                                <dt>Created</dt>
+                                <dd th:text="${database.createdAt}">-</dd>
+                            </div>
+                            <div>
+                                <dt>Last updated</dt>
+                                <dd th:text="${database.updatedAt}">-</dd>
+                            </div>
+                            <div>
+                                <dt>Last password reset</dt>
+                                <dd th:text="${database.lastPasswordResetAt} ?: 'never'">never</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </section>
+
+                <section class="card shadow-sm mb-4" th:if="${canWrite}">
+                    <div class="card-body">
+                        <h3 class="h6 mb-2"><i class="bi bi-folder-plus text-primary"></i> Create collection</h3>
+                        <form class="d-flex gap-2 flex-wrap" method="post"
+                              th:action="@{/databases/{name}/collections(name=${database.dbName})}">
+                            <input aria-label="Collection name" class="form-control collection-name-input" maxlength="64"
+                                   name="collectionName" placeholder="collection name" required type="text">
+                            <button class="btn btn-primary btn-sm" type="submit">
+                                <i class="bi bi-plus-lg"></i> Create
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="card shadow-sm mb-4">
+                    <div class="card-header bg-transparent">
+                        <h3 class="h6 mb-0"><i class="bi bi-collection text-primary"></i> Collections</h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <p class="text-body-secondary p-3 mb-0" th:if="${#lists.isEmpty(collections)}">
+                            This database has no collections yet.
+                        </p>
+                        <div class="table-responsive" th:if="${!#lists.isEmpty(collections)}">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Collection</th>
+                                        <th>Documents</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="collection : ${collections}">
+                                        <td>
+                                            <i class="bi bi-folder text-primary me-1"></i>
+                                            <span th:text="${collection.name}">collection</span>
+                                        </td>
+                                        <td th:text="${collection.documentCount}">0</td>
+                                        <td class="text-end text-nowrap">
+                                            <a class="btn btn-sm btn-outline-primary"
+                                               th:href="@{/databases/{name}/collections/{cname}(name=${database.dbName}, cname=${collection.name})}">
+                                                <i class="bi bi-search"></i> Browse
+                                            </a>
+                                            <form class="d-inline"
+                                                  method="post" th:action="@{/databases/{name}/collections/{cname}/delete(name=${database.dbName}, cname=${collection.name})}"
+                                                  th:attr="data-confirm='Drop collection ' + ${collection.name} + '? This cannot be undone.'">
+                                                <button class="btn btn-sm btn-outline-danger" th:if="${canWrite}"
+                                                        type="submit">
+                                                    <i class="bi bi-trash"></i> Drop
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title th:text="${title} + ' · MongoDB Manager'">MongoDB Manager</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.8/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css}">
+    <link rel="stylesheet" th:href="@{/css/site.css}">
+    <link href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2300684a'/%3E%3Cellipse cx='16' cy='10' rx='7' ry='2.5' fill='%23ffffff'/%3E%3Cpath d='M9 10v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6' fill='none' stroke='%23ffffff' stroke-width='1.8'/%3E%3Cpath d='M9 16v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6' fill='none' stroke='%23ffffff' stroke-width='1.8'/%3E%3C/svg%3E"
+          rel="icon">
+    <script defer th:src="@{/webjars/bootstrap/5.3.8/js/bootstrap.bundle.min.js}"></script>
+    <script defer th:src="@{/js/app.js}"></script>
+</head>
+<body>
+    <aside class="sidebar" th:fragment="nav(page)">
+        <div class="sidebar-brand">
+            <span class="sidebar-brand-icon"><i class="bi bi-database-gear"></i></span>
+            <span class="sidebar-brand-text">MongoDB Manager</span>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="sidebar-section-label">Main</div>
+            <a class="sidebar-link" th:classappend="${page == 'dashboard'} ? 'active'"
+               th:href="@{/}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            <a class="sidebar-link" th:classappend="${page == 'activity'} ? 'active'"
+               th:href="@{/activity}">
+                <i class="bi bi-clock-history"></i> Activity
+                <span class="sidebar-badge" th:if="${activityCount > 0}" th:text="${activityCount}">3</span>
+            </a>
+            <a class="sidebar-link" th:href="@{/mongo-express}">
+                <i class="bi bi-box-arrow-up-right"></i> Mongo Express
+            </a>
+
+            <div class="sidebar-section-label mt-4">Quick Actions</div>
+            <a class="sidebar-link sidebar-link-accent" th:href="@{/} + '#create'" th:if="${canWrite}">
+                <i class="bi bi-plus-circle"></i> New database
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                <div class="avatar" th:text="${#strings.substring(username, 0, 1)}">A</div>
+                <div class="sidebar-user-meta">
+                    <span class="sidebar-user-name" th:text="${username}">admin</span>
+                    <span class="sidebar-user-role">Administrator</span>
+                </div>
+            </div>
+            <form method="post" th:action="@{/logout}">
+                <button class="btn btn-sm btn-outline-light w-100" type="submit">
+                    <i class="bi bi-box-arrow-right"></i> Sign out
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="flash-wrap container-xxl" th:fragment="flash">
+        <div class="alert alert-success alert-dismissible fade show flash" role="alert" th:if="${flashSuccess}">
+            <i class="bi bi-check-circle me-2"></i><span th:text="${flashSuccess}">Success</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div class="alert alert-danger alert-dismissible fade show flash" role="alert" th:if="${flashError}">
+            <i class="bi bi-exclamation-circle me-2"></i><span th:text="${flashError}">Error</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+</body>
+</html>

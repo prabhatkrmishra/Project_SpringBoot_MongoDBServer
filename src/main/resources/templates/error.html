@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Error')}"></head>
+<body class="auth-page">
+    <div class="auth-wrap">
+        <div class="auth-card card border-0 auth-error">
+            <div class="card-body text-center">
+                <div class="d-flex justify-content-center mb-3">
+                    <span class="auth-logo auth-logo-danger"><i class="bi bi-exclamation-octagon"></i></span>
+                </div>
+                <h1 class="h4 mb-1" th:text="${status} + ' ' + ${error}">500 Server Error</h1>
+                <p class="text-body-secondary mb-0" th:text="${message} ?: 'An unexpected error occurred.'">An
+                    unexpected error occurred.</p>
+                <p class="text-body-secondary small mt-2 mb-0" th:if="${path}">Path: <code th:text="${path}">/</code>
+                </p>
+                <a class="btn btn-primary w-100 mt-4" th:href="@{/}">
+                    <i class="bi bi-arrow-left"></i> Back to dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

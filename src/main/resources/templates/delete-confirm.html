@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Delete database')}"></head>
+<body>
+    <div class="layout">
+        <aside th:replace="~{fragments/nav :: nav('database')}"></aside>
+
+        <div class="main">
+            <main th:replace="~{fragments/nav :: flash}"></main>
+
+            <main class="container-xxl py-4">
+                <div class="mx-auto" style="max-width: 720px;">
+                    <nav aria-label="breadcrumb" class="mb-3">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a class="link-primary" th:href="@{/}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a class="link-primary"
+                                                           th:href="@{/databases/{name}(name=${database.dbName})}"
+                                                           th:text="${database.dbName}">database</a></li>
+                            <li class="breadcrumb-item active">Delete</li>
+                        </ol>
+                    </nav>
+
+                    <section class="card shadow-sm border-danger danger-card">
+                        <div class="card-body">
+                            <h2 class="h5 text-danger mb-3">
+                                <i class="bi bi-exclamation-triangle-fill"></i> Delete database
+                                <span th:text="${database.dbName}">database</span>?
+                            </h2>
+                            <p>This permanently drops the database
+                                <strong th:text="${database.dbName}">database</strong><span
+                                        th:if="${database.userName}">
+                            and its dedicated user <strong th:text="${database.userName}">user</strong></span>.
+                                All documents are removed. This action cannot be undone.</p>
+
+                            <p class="text-body-secondary mb-2">Type the database name to enable the delete button:</p>
+                            <form class="d-flex flex-wrap gap-2 align-items-center" method="post"
+                                  th:action="@{/databases/{name}/delete(name=${database.dbName})}">
+                                <input aria-label="Type database name to confirm" autocomplete="off" class="form-control confirm-input"
+                                       id="confirmName" placeholder="Type database name to confirm"
+                                       th:attr="data-confirm-target=${database.dbName}"
+                                       type="text">
+                                <button class="btn btn-danger" disabled id="confirmDelete" type="submit">
+                                    <i class="bi bi-trash"></i> Yes, delete this database
+                                </button>
+                                <a class="btn btn-outline-secondary"
+                                   th:href="@{/databases/{name}(name=${database.dbName})}">Cancel</a>
+                            </form>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

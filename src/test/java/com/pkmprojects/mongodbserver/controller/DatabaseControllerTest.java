@@ -1,0 +1,168 @@
+package com.pkmprojects.mongodbserver.controller;
+
+import com.pkmprojects.mongodbserver.config.AdminProperties;
+import com.pkmprojects.mongodbserver.config.SecurityConfig;
+import com.pkmprojects.mongodbserver.dto.CollectionInfo;
+import com.pkmprojects.mongodbserver.dto.DatabaseInfo;
+import com.pkmprojects.mongodbserver.dto.ResetPasswordForm;
+import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
+import com.pkmprojects.mongodbserver.service.ExplorationService;
+import com.pkmprojects.mongodbserver.service.ProvisioningService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.time.Instant;
+import java.util.List;
+
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * MVC slice tests for database detail, password reset, and delete flows.
+ */
+@WebMvcTest(DatabaseController.class)
+@Import({SecurityConfig.class, DatabaseControllerTest.SecurityTestConfig.class})
+class DatabaseControllerTest {
+
+    private static final Instant NOW = Instant.parse("2026-08-16T10:00:00Z");
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private ProvisioningService provisioningService;
+
+    @MockitoBean
+    private ExplorationService explorationService;
+
+    private DatabaseInfo databaseInfo() {
+        return new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 1, NOW, NOW, null, true, null);
+    }
+
+    @Test
+    void detailRendersForAuthenticatedUser() throws Exception {
+        when(provisioningService.getDatabase("myapp")).thenReturn(databaseInfo());
+        when(explorationService.listCollections("myapp")).thenReturn(List.of(new CollectionInfo("users", 3L)));
+
+        mockMvc.perform(get("/databases/myapp").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("database"))
+                .andExpect(model().attributeExists("database", "collections"))
+                .andExpect(content().string(containsString("users")));
+    }
+
+    @Test
+    void detailOfMissingDatabaseReturns404() throws Exception {
+        when(provisioningService.getDatabase("missing"))
+                .thenThrow(new DatabaseNotFoundException("Database 'missing' does not exist"));
+
+        mockMvc.perform(get("/databases/missing").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNotFound())
+                .andExpect(view().name("error"))
+                .andExpect(content().string(containsString("Database &#39;missing&#39; does not exist")));
+    }
+
+    @Test
+    void resetFormRequiresAdminRole() throws Exception {
+        when(provisioningService.getDatabase("myapp")).thenReturn(databaseInfo());
+
+        mockMvc.perform(get("/databases/myapp/reset").with(user("bob").roles("USER")))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/databases/myapp/reset").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("reset-password"));
+    }
+
+    @Test
+    void resetPasswordAsAdminRedirectsToDetail() throws Exception {
+        when(provisioningService.resetPassword(eq("myapp"), any(ResetPasswordForm.class))).thenReturn(databaseInfo());
+
+        mockMvc.perform(post("/databases/myapp/reset")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .param("password", "newsecret456"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/databases/myapp"));
+
+        verify(provisioningService).resetPassword(eq("myapp"), any(ResetPasswordForm.class));
+    }
+
+    @Test
+    void resetPasswordWithOversizedPasswordRerendersForm() throws Exception {
+        when(provisioningService.getDatabase("myapp")).thenReturn(databaseInfo());
+
+        mockMvc.perform(post("/databases/myapp/reset")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .param("password", "x".repeat(129)))
+                .andExpect(status().isOk())
+                .andExpect(view().name("reset-password"))
+                .andExpect(model().attributeHasFieldErrors("resetForm", "password"));
+
+        verify(provisioningService, never()).resetPassword(any(), any());
+    }
+
+    @Test
+    void resetPasswordAsUserIsForbidden() throws Exception {
+        mockMvc.perform(post("/databases/myapp/reset")
+                        .with(user("bob").roles("USER"))
+                        .with(csrf())
+                        .param("password", "newsecret456"))
+                .andExpect(status().isForbidden());
+
+        verify(provisioningService, never()).resetPassword(any(), any());
+    }
+
+    @Test
+    void deleteConfirmRequiresAdminRole() throws Exception {
+        when(provisioningService.getDatabase("myapp")).thenReturn(databaseInfo());
+
+        mockMvc.perform(get("/databases/myapp/delete").with(user("bob").roles("USER")))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/databases/myapp/delete").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("delete-confirm"));
+    }
+
+    @Test
+    void deleteAsAdminRedirectsToDashboard() throws Exception {
+        mockMvc.perform(post("/databases/myapp/delete")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/"));
+
+        verify(provisioningService).delete("myapp");
+    }
+
+    @Test
+    void deleteWithoutCsrfIsRejected() throws Exception {
+        mockMvc.perform(post("/databases/myapp/delete").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden());
+
+        verify(provisioningService, never()).delete(any());
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class SecurityTestConfig {
+        @Bean
+        AdminProperties adminProperties() {
+            return new AdminProperties("admin", "admin");
+        }
+    }
+}

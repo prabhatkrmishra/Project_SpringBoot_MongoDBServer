@@ -7,19 +7,25 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
 
+/**
+ * Shared Testcontainers wiring: a Mongo 8 server with a root user and a Redis
+ * server, both wired into the Spring context via {@code @ServiceConnection}.
+ */
 @TestConfiguration(proxyBeanMethods = false)
 class TestcontainersConfiguration {
 
-	@Bean
-	@ServiceConnection
-	MongoDBContainer mongoDbContainer() {
-		return new MongoDBContainer(DockerImageName.parse("mongo:latest"));
-	}
+    @Bean
+    @ServiceConnection
+    MongoDBContainer mongoDbContainer() {
+        return new MongoDBContainer(DockerImageName.parse("mongo:8"))
+                .withEnv("MONGO_INITDB_ROOT_USERNAME", "root")
+                .withEnv("MONGO_INITDB_ROOT_PASSWORD", "root");
+    }
 
-	@Bean
-	@ServiceConnection(name = "redis")
-	GenericContainer<?> redisContainer() {
-		return new GenericContainer<>(DockerImageName.parse("redis:latest")).withExposedPorts(6379);
-	}
+    @Bean
+    @ServiceConnection(name = "redis")
+    GenericContainer<?> redisContainer() {
+        return new GenericContainer<>(DockerImageName.parse("redis:8")).withExposedPorts(6379);
+    }
 
 }

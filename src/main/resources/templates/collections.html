@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Collection ' + ${page.collectionName})}"></head>
+<body>
+    <div class="layout">
+        <aside th:replace="~{fragments/nav :: nav('collections')}"></aside>
+
+        <div class="main">
+            <main th:replace="~{fragments/nav :: flash}"></main>
+
+            <main class="container-xxl py-4">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a class="link-primary" th:href="@{/}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a class="link-primary"
+                                                       th:href="@{/databases/{name}(name=${page.dbName})}"
+                                                       th:text="${page.dbName}">database</a></li>
+                        <li class="breadcrumb-item active" th:text="${page.collectionName}">collection</li>
+                    </ol>
+                </nav>
+
+                <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <h1 class="mb-1">
+                            <i class="bi bi-folder2-open text-primary"></i>
+                            <span th:text="${page.collectionName}">collection</span>
+                        </h1>
+                        <p class="mb-0" th:if="${page.totalPages > 0}">
+                            <span th:text="${page.totalCount}">0</span> document(s) —
+                            page <span th:text="${page.page}">1</span> of <span th:text="${page.totalPages}">1</span>
+                        </p>
+                        <p class="mb-0" th:if="${page.totalPages == 0}">This collection is empty.</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-secondary"
+                           th:href="@{/databases/{name}/collections/{cname}(name=${page.dbName}, cname=${page.collectionName}, page=${page.page - 1})}"
+                           th:if="${page.hasPrev}"><i class="bi bi-chevron-left"></i> Previous</a>
+                        <a class="btn btn-sm btn-outline-secondary"
+                           th:href="@{/databases/{name}/collections/{cname}(name=${page.dbName}, cname=${page.collectionName}, page=${page.page + 1})}"
+                           th:if="${page.hasNext}">Next <i class="bi bi-chevron-right"></i></a>
+                        <a class="btn btn-sm btn-primary"
+                           th:href="@{/databases/{name}/collections/{cname}/export(name=${page.dbName}, cname=${page.collectionName}, page=${page.page})}"
+                           th:if="${page.totalPages > 0}">
+                            <i class="bi bi-download"></i> Download page (.json)
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card" th:if="${#lists.isEmpty(page.documents)}">
+                    <div class="empty-state">
+                        <span class="empty-state-icon"><i class="bi bi-inbox"></i></span>
+                        <p class="empty-state-title">No documents in this collection</p>
+                        <p class="empty-state-text">Documents will appear here once your application writes data.</p>
+                    </div>
+                </div>
+
+                <div class="documents" th:if="${!#lists.isEmpty(page.documents)}">
+                    <div class="card shadow-sm document-card" th:each="document : ${page.documents}">
+                        <div class="document-head">
+                            <span class="text-body-secondary small"><i
+                                    class="bi bi-braces me-1"></i>Extended JSON</span>
+                            <button class="btn btn-sm btn-outline-secondary copy-btn" th:attr="data-copy=${document}"
+                                    type="button">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                        </div>
+                        <pre class="document-pre"><code th:text="${document}">{"key": "value"}</code></pre>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>
