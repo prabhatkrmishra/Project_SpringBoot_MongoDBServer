@@ -19,7 +19,7 @@
                 <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                     <div>
                         <h1 class="mb-1">RESTHeart Access Control</h1>
-                        <p class="mb-0 text-body-secondary">Define which URL patterns each role can access through the
+                        <p class="mb-0 text-body-secondary">Define which predicate-based rules each role can use through the
                             RESTHeart API.</p>
                     </div>
                 </div>
@@ -33,8 +33,9 @@
                     </div>
                     <div class="card-body">
                         <p class="text-body-secondary mb-4">
-                            ACL rules control which HTTP methods and URL patterns are accessible to each role. Set the
-                            Rule ID to an existing ID to update that rule.
+                            ACL rules use undertow predicates to authorize requests. Set the Rule ID to an existing ID
+                            to update that rule. Common predicates: <code>path-prefix('/db')</code>,
+                            <code>method(GET)</code>, <code>path-prefix('/') and method(GET)</code>.
                         </p>
                         <form class="form-grid" method="post" th:action="@{/restheart/acl}" th:object="${aclForm}">
                             <div class="mb-3">
@@ -47,21 +48,13 @@
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label" for="aclUrl">URL pattern</label>
-                                <input class="form-control" id="aclUrl" maxlength="256" required
-                                       th:field="*{url}" type="text" placeholder="e.g., /taskpilot-ai/*">
-                                <div class="form-hint">RESTHeart URL path pattern. Use /* for wildcard.</div>
-                                <div class="text-danger small mt-1" th:errors="*{url}"
-                                     th:if="${#fields.hasErrors('url')}">Error
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label" for="aclMethods">Methods</label>
-                                <input class="form-control" id="aclMethods" maxlength="256"
-                                       th:field="*{methods}" type="text" placeholder="e.g., GET, POST, PUT, DELETE, PATCH">
-                                <div class="form-hint">Comma-separated HTTP methods. Leave blank for all.</div>
-                                <div class="text-danger small mt-1" th:errors="*{methods}"
-                                     th:if="${#fields.hasErrors('methods')}">Error
+                                <label class="form-label" for="aclPredicate">Predicate</label>
+                                <input class="form-control font-monospace" id="aclPredicate" maxlength="512" required
+                                       th:field="*{predicate}" type="text" placeholder="e.g., path-prefix('/')">
+                                <div class="form-hint">Undertow predicate expression. See
+                                    <a href="https://restheart.org/docs/security/authorization" target="_blank">RESTHeart ACL docs</a>.</div>
+                                <div class="text-danger small mt-1" th:errors="*{predicate}"
+                                     th:if="${#fields.hasErrors('predicate')}">Error
                                 </div>
                             </div>
                             <div class="mb-3">
@@ -74,13 +67,10 @@
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" id="authRequired" type="checkbox"
-                                           th:field="*{authenticationRequired}">
-                                    <label class="form-check-label" for="authRequired">Authentication
-                                        required</label>
-                                </div>
-                                <div class="form-hint">When enabled, unauthenticated requests are rejected.</div>
+                                <label class="form-label" for="aclPriority">Priority</label>
+                                <input class="form-control" id="aclPriority" type="number"
+                                       th:field="*{priority}" min="0" max="999999">
+                                <div class="form-hint">Higher = evaluated first. Default 100.</div>
                             </div>
                             <div class="form-actions">
                                 <button class="btn btn-primary" type="submit">
@@ -114,10 +104,9 @@
                                 <thead>
                                     <tr>
                                         <th>Rule ID</th>
-                                        <th>URL</th>
-                                        <th>Methods</th>
+                                        <th>Predicate</th>
                                         <th>Roles</th>
-                                        <th>Auth</th>
+                                        <th>Priority</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
                                 </thead>
@@ -130,26 +119,19 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <code th:text="${rule['url']}">/</code>
-                                        </td>
-                                        <td>
-                                            <span class="badge badge-soft-secondary" th:each="m : ${rule['methods']}"
-                                                  th:text="${m}">GET</span>
+                                            <code class="small" th:text="${rule['predicate']}">predicate</code>
                                         </td>
                                         <td>
                                             <span class="badge badge-soft-info" th:each="r : ${rule['roles']}"
                                                   th:text="${r}">user</span>
                                         </td>
                                         <td>
-                                            <span class="badge badge-soft-success"
-                                                  th:if="${rule['authentication-required']}">required</span>
-                                            <span class="badge badge-soft-secondary"
-                                                  th:if="${!rule['authentication-required']}">open</span>
+                                            <span class="text-body-secondary" th:text="${rule['priority']}">100</span>
                                         </td>
                                         <td class="text-end text-nowrap">
                                             <div class="btn-group btn-group-sm">
                                                 <button class="btn btn-outline-secondary edit-acl-btn" type="button"
-                                                        th:attr="data-id=${rule['_id']}, data-url=${rule['url']}, data-methods=${rule['methods']}, data-roles=${rule['roles']}, data-auth=${rule['authentication-required']}"
+                                                        th:attr="data-id=${rule['_id']}, data-predicate=${rule['predicate']}, data-roles=${rule['roles']}, data-priority=${rule['priority']}"
                                                         title="Edit rule">
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
@@ -180,10 +162,9 @@
             document.querySelectorAll('.edit-acl-btn').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     document.getElementById('ruleId').value = btn.getAttribute('data-id') || '';
-                    document.getElementById('aclUrl').value = btn.getAttribute('data-url') || '';
-                    document.getElementById('aclMethods').value = btn.getAttribute('data-methods') || '';
+                    document.getElementById('aclPredicate').value = btn.getAttribute('data-predicate') || '';
                     document.getElementById('aclRoles').value = btn.getAttribute('data-roles') || '';
-                    document.getElementById('authRequired').checked = btn.getAttribute('data-auth') === 'true';
+                    document.getElementById('aclPriority').value = btn.getAttribute('data-priority') || '100';
                     document.getElementById('ruleId').focus();
                     window.scrollTo({top: 0, behavior: 'smooth'});
                 });

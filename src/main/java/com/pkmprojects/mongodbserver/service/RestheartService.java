@@ -60,15 +60,14 @@ public class RestheartService {
 
     /**
      * Creates a new RESTHeart user. The password is bcrypt-hashed before storage.
+     * Duplicate {@code _id} values are handled by the MongoDB unique index —
+     * no pre-check needed.
      *
      * @param id       username (used as _id)
      * @param password plaintext password
      * @param roles    list of role names (e.g. ["user", "admin"])
      */
     public void createUser(String id, String password, List<String> roles) {
-        if (findUser(id) != null) {
-            throw new ProvisioningException("RESTHeart user '" + id + "' already exists", null);
-        }
         Document doc = new Document("_id", id)
                 .append("password", passwordEncoder.encode(password))
                 .append("roles", roles);
@@ -76,6 +75,9 @@ public class RestheartService {
             usersCollection.insertOne(doc);
             log.info("Created RESTHeart user '{}' with roles {}", id, roles);
         } catch (MongoCommandException e) {
+            if (e.getErrorCode() == 11000) {
+                throw new ProvisioningException("RESTHeart user '" + id + "' already exists", e);
+            }
             log.error("Failed to create RESTHeart user '{}'", id, e);
             throw new ProvisioningException("Could not create RESTHeart user '" + id + "'", e);
         }
@@ -97,6 +99,28 @@ public class RestheartService {
         } catch (MongoCommandException e) {
             log.error("Failed to reset password for RESTHeart user '{}'", id, e);
             throw new ProvisioningException("Could not reset password for RESTHeart user '" + id + "'", e);
+        }
+    }
+
+    /**
+     * Best-effort password update for a RESTHeart user. Does not throw if the
+     * user does not exist or if the update fails — called by provisioning after
+     * the MongoDB password has already been rotated so a failure here should not
+     * roll back the entire operation.
+     */
+    public void updatePassword(String id, String newPassword) {
+        Document doc = findUser(id);
+        if (doc == null) {
+            log.warn("RESTHeart user '{}' not found — skipping password sync", id);
+            return;
+        }
+        Document update = new Document("$set",
+                new Document("password", passwordEncoder.encode(newPassword)));
+        try {
+            usersCollection.updateOne(new Document("_id", id), update);
+            log.info("Updated password for RESTHeart user '{}'", id);
+        } catch (Exception e) {
+            log.warn("Could not update password for RESTHeart user '{}': {}", id, e.getMessage());
         }
     }
 
@@ -154,33 +178,56 @@ public class RestheartService {
     }
 
     /**
-     * Creates or updates an ACL entry.
+     * Creates or updates an ACL entry using RESTHeart's predicate-based format.
      *
-     * @param id              unique identifier for the rule
-     * @param url             URL pattern (e.g. {@code /})
-     * @param methods         allowed HTTP methods (e.g. ["GET", "POST"])
-     * @param roles           roles that can access this pattern (e.g. ["user"])
-     * @param authenticationRequired whether authentication is required
+     * @param id        unique identifier for the rule
+     * @param predicate undertow predicate expression (e.g. {@code path-prefix('/')})
+     * @param roles     roles that can access this pattern (e.g. ["user"])
+     * @param priority  evaluation precedence (higher = evaluated first)
      */
-    public void upsertAclEntry(String id, String url, List<String> methods,
-                               List<String> roles, boolean authenticationRequired) {
+    public void upsertAclEntry(String id, String predicate, List<String> roles, int priority) {
         Document doc = new Document("_id", id)
-                .append("url", url)
-                .append("methods", methods)
                 .append("roles", roles)
-                .append("authentication-required", authenticationRequired);
+                .append("predicate", predicate)
+                .append("priority", priority);
         try {
             Document existing = findAclEntry(id);
             if (existing != null) {
                 aclCollection.replaceOne(new Document("_id", id), doc);
-                log.info("Updated ACL entry '{}': url={}, roles={}", id, url, roles);
+                log.info("Updated ACL entry '{}': predicate={}, roles={}", id, predicate, roles);
             } else {
                 aclCollection.insertOne(doc);
-                log.info("Created ACL entry '{}': url={}, roles={}", id, url, roles);
+                log.info("Created ACL entry '{}': predicate={}, roles={}", id, predicate, roles);
             }
         } catch (MongoCommandException e) {
             log.error("Failed to upsert ACL entry '{}'", id, e);
             throw new ProvisioningException("Could not save ACL entry '" + id + "'", e);
+        }
+    }
+
+    /**
+     * Best-effort delete of a RESTHeart user. Tolerates the user not existing
+     * and network errors.
+     */
+    public void deleteUserIfExists(String id) {
+        try {
+            usersCollection.deleteOne(new Document("_id", id));
+            log.info("Deleted RESTHeart user '{}'", id);
+        } catch (Exception e) {
+            log.warn("Could not delete RESTHeart user '{}': {}", id, e.getMessage());
+        }
+    }
+
+    /**
+     * Best-effort delete of an ACL entry. Tolerates the entry not existing
+     * and network errors.
+     */
+    public void deleteAclEntryIfExists(String id) {
+        try {
+            aclCollection.deleteOne(new Document("_id", id));
+            log.info("Deleted ACL entry '{}'", id);
+        } catch (Exception e) {
+            log.warn("Could not delete ACL entry '{}': {}", id, e.getMessage());
         }
     }
 

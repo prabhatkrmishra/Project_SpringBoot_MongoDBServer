@@ -54,7 +54,6 @@ public class ProvisioningService {
     private static final Logger log = LoggerFactory.getLogger(ProvisioningService.class);
 
     private static final int GENERATED_PASSWORD_LENGTH = 16;
-    private static final int MONGO_CODE_USER_NOT_FOUND = 11;
     private static final int MONGO_CODE_NAMESPACE_NOT_FOUND = 26;
     private static final int MONGO_CODE_USER_ALREADY_EXISTS = 51003;
 
@@ -75,6 +74,7 @@ public class ProvisioningService {
     private final PasswordGenerator passwordGenerator;
     private final Clock clock;
     private final Environment environment;
+    private final RestheartService restheartService;
 
     public ProvisioningService(MongoDatabaseRepository mongoDatabaseRepository,
                                ManagedDatabaseRepository managedDatabaseRepository,
@@ -82,7 +82,8 @@ public class ProvisioningService {
                                MongoNameValidator nameValidator,
                                PasswordGenerator passwordGenerator,
                                Clock clock,
-                               Environment environment) {
+                               Environment environment,
+                               RestheartService restheartService) {
         this.mongoDatabaseRepository = mongoDatabaseRepository;
         this.managedDatabaseRepository = managedDatabaseRepository;
         this.auditLogRepository = auditLogRepository;
@@ -90,6 +91,7 @@ public class ProvisioningService {
         this.passwordGenerator = passwordGenerator;
         this.clock = clock;
         this.environment = environment;
+        this.restheartService = restheartService;
     }
 
     /**
@@ -139,6 +141,10 @@ public class ProvisioningService {
             Instant now = clock.instant();
             ManagedDatabase metadata = new ManagedDatabase(dbName, userName, List.of("readWrite:" + dbName), now, now, null);
             managedDatabaseRepository.save(metadata);
+
+            // Create RESTHeart API user + ACL so apps can hit /{db} through RESTHeart
+            createRestheartUserAndAcl(userName, password, dbName);
+
             audit(AuditEvent.PROVISION, dbName, userName, now);
             log.info("Provisioned database '{}' with user '{}'", dbName, userName);
 
@@ -171,6 +177,9 @@ public class ProvisioningService {
                 throw new ProvisioningException("Could not reset password for database '" + dbName + "'", e);
             }
 
+            // Sync the password to the RESTHeart API user
+            restheartService.updatePassword(metadata.getUserName(), password);
+
             metadata.setLastPasswordResetAt(clock.instant());
             managedDatabaseRepository.save(metadata);
             audit(AuditEvent.RESET_PASSWORD, dbName, metadata.getUserName(), metadata.getLastPasswordResetAt());
@@ -201,13 +210,17 @@ public class ProvisioningService {
             }
 
             metadata.ifPresent(m -> {
+                // Best-effort cleanup of RESTHeart API user + ACL
+                restheartService.deleteUserIfExists(m.getUserName());
+                restheartService.deleteAclEntryIfExists(m.getUserName() + "-access");
+
+                // Best-effort: after dropDatabase() the user is already gone
+                // (users live inside the DB). Tolerate UserNotFound and any
+                // other error so metadata cleanup is never blocked.
                 try {
                     mongoDatabaseRepository.dropUser(dbName, m.getUserName());
-                } catch (MongoCommandException e) {
-                    if (!isMongoCode(e, MONGO_CODE_USER_NOT_FOUND)) {
-                        log.error("Failed to drop user '{}' for database '{}'", m.getUserName(), dbName, e);
-                        throw new ProvisioningException("Could not drop user for database '" + dbName + "'", e);
-                    }
+                } catch (Exception e) {
+                    log.debug(".dropUser for '{}' was best-effort: {}", m.getUserName(), e.getMessage());
                 }
             });
 
@@ -369,5 +382,29 @@ public class ProvisioningService {
 
     private boolean isMongoCode(MongoCommandException e, int code) {
         return e.getErrorCode() == code;
+    }
+
+    /**
+     * Creates a RESTHeart user (for API auth) and an ACL rule granting that user
+     * access to the database path. Failures are logged and swallowed — the MongoDB
+     * provision succeeded and the admin can create/fix the RESTHeart side manually.
+     */
+    private void createRestheartUserAndAcl(String userName, String password, String dbName) {
+        try {
+            restheartService.createUser(userName, password, List.of(userName));
+        } catch (Exception e) {
+            log.warn("Could not create RESTHeart user '{}' — apps will need manual setup: {}",
+                    userName, e.getMessage());
+        }
+        try {
+            restheartService.upsertAclEntry(
+                    userName + "-access",
+                    "path-prefix('/" + dbName + "')",
+                    List.of(userName),
+                    100);
+        } catch (Exception e) {
+            log.warn("Could not create ACL entry for user '{}' — apps will need manual setup: {}",
+                    userName, e.getMessage());
+        }
     }
 }

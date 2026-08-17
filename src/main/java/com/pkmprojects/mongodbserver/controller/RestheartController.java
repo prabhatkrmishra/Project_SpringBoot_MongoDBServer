@@ -104,7 +104,7 @@ public class RestheartController {
     public String listAcl(Model model) {
         List<Document> acl = restheartService.listAcl();
         model.addAttribute("acl", acl);
-        model.addAttribute("aclForm", new CreateAclEntryForm("", "/", "GET", "user", true));
+        model.addAttribute("aclForm", new CreateAclEntryForm("", "path-prefix('/')", "user", 100));
         return "restheart-acl";
     }
 
@@ -116,8 +116,8 @@ public class RestheartController {
             return "restheart-acl";
         }
         restheartService.upsertAclEntry(
-                form.ruleId(), form.url(), form.parsedMethods(), form.parsedRoles(),
-                form.authenticationRequired());
+                form.ruleId(), form.predicate(), form.parsedRoles(),
+                form.priority());
         redirectAttributes.addFlashAttribute("flashSuccess", "ACL rule '" + form.ruleId() + "' saved");
         return "redirect:/restheart/acl";
     }

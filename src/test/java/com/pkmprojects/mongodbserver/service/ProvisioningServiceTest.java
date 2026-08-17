@@ -61,6 +61,8 @@ class ProvisioningServiceTest {
     private PasswordGenerator passwordGenerator;
     @Mock
     private Environment environment;
+    @Mock
+    private RestheartService restheartService;
 
     private ProvisioningService service;
 
@@ -74,7 +76,7 @@ class ProvisioningServiceTest {
                 new UsernamePasswordAuthenticationToken("admin", "n/a", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
         service = new ProvisioningService(mongoDatabaseRepository, managedDatabaseRepository,
                 auditLogRepository, new MongoNameValidator(), passwordGenerator,
-                Clock.fixed(NOW, ZoneOffset.UTC), environment);
+                Clock.fixed(NOW, ZoneOffset.UTC), environment, restheartService);
     }
 
     @AfterEach
@@ -98,6 +100,10 @@ class ProvisioningServiceTest {
         assertThat(saved.getUserName()).isEqualTo("appuser");
         assertThat(saved.getCreatedAt()).isEqualTo(NOW);
         assertThat(saved.getLastPasswordResetAt()).isNull();
+
+        // Verify RESTHeart API user and ACL were created
+        verify(restheartService).createUser("appuser", "generatedPass123", List.of("appuser"));
+        verify(restheartService).upsertAclEntry("appuser-access", "path-prefix('/myapp')", List.of("appuser"), 100);
 
         ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
         verify(auditLogRepository).save(auditCaptor.capture());
@@ -182,6 +188,7 @@ class ProvisioningServiceTest {
         DatabaseInfo info = service.resetPassword("myapp", new ResetPasswordForm("newsecret456"));
 
         verify(mongoDatabaseRepository).updateUserPassword("myapp", "appuser", "newsecret456");
+        verify(restheartService).updatePassword("appuser", "newsecret456");
         assertThat(info.restheartEnvVars()).isEqualTo("RESTHEART_URL=http://localhost:9814\nDB_USER=appuser\nDB_PASS=newsecret456\nMONGODB_DB=myapp");
         assertThat(metadata.getLastPasswordResetAt()).isEqualTo(NOW);
         verify(managedDatabaseRepository).save(metadata);
@@ -221,6 +228,8 @@ class ProvisioningServiceTest {
 
         verify(mongoDatabaseRepository).dropDatabase("myapp");
         verify(mongoDatabaseRepository).dropUser("myapp", "appuser");
+        verify(restheartService).deleteUserIfExists("appuser");
+        verify(restheartService).deleteAclEntryIfExists("appuser-access");
         verify(managedDatabaseRepository).deleteByDbName("myapp");
 
         ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
@@ -237,6 +246,8 @@ class ProvisioningServiceTest {
         verify(mongoDatabaseRepository, never()).dropUser(any(), any());
         verify(mongoDatabaseRepository).dropDatabase("externaldb");
         verify(managedDatabaseRepository, never()).deleteByDbName(any());
+        verify(restheartService, never()).deleteUserIfExists(any());
+        verify(restheartService, never()).deleteAclEntryIfExists(any());
     }
 
     @Test
@@ -252,6 +263,8 @@ class ProvisioningServiceTest {
         service.delete("myapp");
 
         verify(mongoDatabaseRepository).dropDatabase("myapp");
+        verify(restheartService).deleteUserIfExists("appuser");
+        verify(restheartService).deleteAclEntryIfExists("appuser-access");
         verify(mongoDatabaseRepository).dropUser("myapp", "appuser");
         verify(managedDatabaseRepository).deleteByDbName("myapp");
     }

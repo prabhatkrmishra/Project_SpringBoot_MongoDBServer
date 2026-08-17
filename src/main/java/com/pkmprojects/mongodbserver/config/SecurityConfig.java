@@ -53,11 +53,14 @@ public class SecurityConfig {
     }
 
     /**
-     * BCrypt encoder used for the in-memory admin user.
+     * BCrypt encoder used for the in-memory admin user and RESTHeart user
+     * passwords. Strength 12 matches RESTHeart's {@code bcrypt-complexity->12}
+     * configuration so that hashes produced here can be verified by RESTHeart's
+     * {@code MongoRealmAuthenticator}.
      */
     @Bean
     PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(12);
     }
 
     /**

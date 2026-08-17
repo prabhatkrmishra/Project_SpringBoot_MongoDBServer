@@ -36,12 +36,18 @@ services:
         /mclient/connection-string->"mongodb://${MONGODB_ROOT_USERNAME:-root}:${MONGODB_ROOT_PASSWORD:-root}@127.0.0.1:9812/?authSource=admin";
         /http-listener/host->"0.0.0.0";
         /http-listener/port->9814;
-        /authenticator/class->"org.restheart.security.impl.MongoDBRealmAuthenticator";
-        /authenticator/enabled->true;
-        /idm/class->"org.restheart.security.impl.MongoIDRepository";
-        /idm/enabled->true;
-        /authorizer/enabled->true;
-        /authorizer/class->"org.restheart.security.impl.MongoAuthorizer"
+        /basicAuthMechanism/enabled->true;
+        /basicAuthMechanism/authenticator->"mongoRealmAuthenticator";
+        /mongoRealmAuthenticator/enabled->true;
+        /mongoRealmAuthenticator/users-db->"restheart";
+        /mongoRealmAuthenticator/users-collection->"users";
+        /mongoRealmAuthenticator/prop-id->"_id";
+        /mongoRealmAuthenticator/prop-password->"password";
+        /mongoRealmAuthenticator/json-path-roles->"$.roles";
+        /mongoRealmAuthenticator/bcrypt-hashed-password->true;
+        /mongoRealmAuthenticator/bcrypt-complexity->12;
+        /mongoRealmAuthenticator/create-user->true;
+        /mongoAclAuthorizer/enabled->true
 
 volumes:
   mongo-data:
