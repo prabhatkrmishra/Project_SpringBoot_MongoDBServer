@@ -105,7 +105,7 @@ MONGODB_DB=...</code></pre>
                     </div>
                 </section>
 
-                <section class="card shadow-sm mb-4" th:if="${database.provisioned and database.restheartPassword}">
+                <section class="card shadow-sm mb-4" th:if="${database.provisioned and database.restheartPassword != null}">
                     <div class="card-header bg-transparent">
                         <h3 class="h6 mb-0"><i class="bi bi-key text-primary"></i> API Credentials</h3>
                     </div>

@@ -49,7 +49,7 @@ class DatabaseControllerTest {
     private ExplorationService explorationService;
 
     private DatabaseInfo databaseInfo() {
-        return new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 1, NOW, NOW, null, true, null, "http://localhost:9814");
+        return new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 1, NOW, NOW, null, true, null, "http://localhost:9814", null);
     }
 
     @Test
