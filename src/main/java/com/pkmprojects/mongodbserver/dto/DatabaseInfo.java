@@ -7,8 +7,8 @@ import java.util.List;
 
 /**
  * View model for a database shown on the dashboard / detail page.
- * Never exposes a password; {@code connectionString} is only populated for the
- * "show once" flash message after creation or password reset.
+ * {@code connectionString} is populated after creation/reset (flash message)
+ * and reconstructed from stored provisioning metadata for provisioned databases.
  *
  * <p>Serializable because the show-once message travels as a flash attribute,
  * and flash attributes are stored in the HTTP session (JDK serialization).

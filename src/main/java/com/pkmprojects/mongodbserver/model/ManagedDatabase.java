@@ -9,8 +9,8 @@ import java.util.List;
 /**
  * Metadata about a provisioned database: which Mongo user owns it, when it was
  * created, and when its password was last reset. Stored in the {@code mongodb_admin}
- * database. Passwords are intentionally NOT persisted - they are shown once at
- * creation/reset (Atlas-style) and only Mongo stores their hashes.
+ * database. The stored password allows the connection string to be reconstructed
+ * and shown on the database detail page at any time.
  */
 @Document(collection = "provisioned_databases")
 public class ManagedDatabase {
@@ -29,6 +29,8 @@ public class ManagedDatabase {
     private Instant updatedAt;
 
     private Instant lastPasswordResetAt;
+
+    private String storedPassword;
 
     public ManagedDatabase() {
         // for Spring Data
@@ -81,6 +83,14 @@ public class ManagedDatabase {
 
     public Instant getLastPasswordResetAt() {
         return lastPasswordResetAt;
+    }
+
+    public String getStoredPassword() {
+        return storedPassword;
+    }
+
+    public void setStoredPassword(String storedPassword) {
+        this.storedPassword = storedPassword;
     }
 
     /**

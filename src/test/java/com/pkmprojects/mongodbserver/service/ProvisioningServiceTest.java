@@ -98,6 +98,7 @@ class ProvisioningServiceTest {
         assertThat(saved.getUserName()).isEqualTo("appuser");
         assertThat(saved.getCreatedAt()).isEqualTo(NOW);
         assertThat(saved.getLastPasswordResetAt()).isNull();
+        assertThat(saved.getStoredPassword()).isEqualTo("generatedPass123");
 
         ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
         verify(auditLogRepository).save(auditCaptor.capture());
@@ -114,6 +115,9 @@ class ProvisioningServiceTest {
         DatabaseInfo info = service.provision(new CreateDatabaseForm("myapp", "appuser", "mysecret123"));
 
         verify(mongoDatabaseRepository).createUser("myapp", "appuser", "mysecret123");
+        ArgumentCaptor<ManagedDatabase> metadataCaptor = ArgumentCaptor.forClass(ManagedDatabase.class);
+        verify(managedDatabaseRepository).save(metadataCaptor.capture());
+        assertThat(metadataCaptor.getValue().getStoredPassword()).isEqualTo("mysecret123");
         assertThat(info.connectionString()).contains("appuser:mysecret123@");
     }
 
@@ -184,6 +188,7 @@ class ProvisioningServiceTest {
         verify(mongoDatabaseRepository).updateUserPassword("myapp", "appuser", "newsecret456");
         assertThat(info.connectionString()).isEqualTo("mongodb://appuser:newsecret456@localhost:27017/myapp?authSource=myapp");
         assertThat(metadata.getLastPasswordResetAt()).isEqualTo(NOW);
+        assertThat(metadata.getStoredPassword()).isEqualTo("newsecret456");
         verify(managedDatabaseRepository).save(metadata);
 
         ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
@@ -201,6 +206,7 @@ class ProvisioningServiceTest {
         service.resetPassword("myapp", new ResetPasswordForm(""));
 
         verify(mongoDatabaseRepository).updateUserPassword("myapp", "appuser", "rotatedPass456");
+        assertThat(metadata.getStoredPassword()).isEqualTo("rotatedPass456");
     }
 
     @Test
@@ -342,6 +348,36 @@ class ProvisioningServiceTest {
 
         assertThatThrownBy(() -> service.getDatabase("myapp"))
                 .isInstanceOf(DatabaseNotFoundException.class);
+    }
+
+    @Test
+    void getDatabaseReconstructsConnectionStringFromStoredPassword() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
+        ManagedDatabase metadata = new ManagedDatabase("myapp", "appuser", List.of("readWrite:myapp"),
+                NOW, NOW, null);
+        metadata.setStoredPassword("mypassword");
+        when(managedDatabaseRepository.findByDbName("myapp")).thenReturn(Optional.of(metadata));
+        when(mongoDatabaseRepository.listCollectionNames("myapp")).thenReturn(List.of("items"));
+
+        DatabaseInfo info = service.getDatabase("myapp");
+
+        assertThat(info.provisioned()).isTrue();
+        assertThat(info.userName()).isEqualTo("appuser");
+        assertThat(info.connectionString()).isEqualTo("mongodb://appuser:mypassword@localhost:27017/myapp?authSource=myapp");
+    }
+
+    @Test
+    void getDatabaseReturnsNullConnectionStringWhenNoStoredPassword() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
+        ManagedDatabase metadata = new ManagedDatabase("myapp", "appuser", List.of("readWrite:myapp"),
+                NOW, NOW, null);
+        when(managedDatabaseRepository.findByDbName("myapp")).thenReturn(Optional.of(metadata));
+        when(mongoDatabaseRepository.listCollectionNames("myapp")).thenReturn(List.of());
+
+        DatabaseInfo info = service.getDatabase("myapp");
+
+        assertThat(info.provisioned()).isTrue();
+        assertThat(info.connectionString()).isNull();
     }
 
     @Test

@@ -18,9 +18,8 @@
 
                 <div class="card credential-card shadow-sm mb-4" th:if="${newCredentials}">
                     <div class="card-body">
-                        <h3 class="h6 mb-1"><i class="bi bi-key-fill"></i> Connection string — shown only once</h3>
-                        <p class="text-body-secondary">Store it somewhere safe. The password cannot be recovered later
-                            (only reset). Connect to this database with:</p>
+                        <h3 class="h6 mb-1"><i class="bi bi-key-fill"></i> Connection string</h3>
+                        <p class="text-body-secondary">Connect to this database with:</p>
                         <div class="credential-row">
                             <pre class="credential-pre"><code th:text="${newCredentials.connectionString}">mongodb://user:pass@host/db</code></pre>
                             <button class="btn btn-sm btn-outline-light copy-btn" th:attr="data-copy=${newCredentials.connectionString}"
@@ -80,6 +79,51 @@
                                 <dd th:text="${database.lastPasswordResetAt} ?: 'never'">never</dd>
                             </div>
                         </dl>
+                    </div>
+                </section>
+
+                <section class="card shadow-sm mb-4" th:if="${database.provisioned and database.connectionString != null}">
+                    <div class="card-header bg-transparent">
+                        <h3 class="h6 mb-0"><i class="bi bi-link-45deg text-primary"></i> Connection String</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-body-secondary small mb-3">Copy this connection string into your application's
+                            MongoDB driver configuration.</p>
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">MongoDB URI</label>
+                            <div class="input-group">
+                                <input class="form-control form-control-sm font-monospace bg-body-secondary" readonly
+                                       th:value="${database.connectionString}" type="text">
+                                <button class="btn btn-outline-secondary btn-sm" th:data-copy="${database.connectionString}"
+                                        type="button">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label fw-medium">Database</label>
+                                <div class="input-group">
+                                    <input class="form-control form-control-sm font-monospace bg-body-secondary" readonly
+                                           th:value="${database.dbName}" type="text">
+                                    <button class="btn btn-outline-secondary btn-sm" th:data-copy="${database.dbName}"
+                                            type="button">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label fw-medium">Username</label>
+                                <div class="input-group">
+                                    <input class="form-control form-control-sm font-monospace bg-body-secondary" readonly
+                                           th:value="${database.userName}" type="text">
+                                    <button class="btn btn-outline-secondary btn-sm" th:data-copy="${database.userName}"
+                                            type="button">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

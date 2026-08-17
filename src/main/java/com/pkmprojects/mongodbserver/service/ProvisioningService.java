@@ -35,9 +35,10 @@ import java.util.stream.Collectors;
  * create a database with a dedicated db-scoped user, rotate its password,
  * and delete the database together with its user.
  *
- * <p>Passwords are generated on demand, shown once to the admin, and never
- * persisted - only non-secret metadata lives in {@code mongodb_admin}. Every
- * lifecycle action is recorded in the {@code admin_activity} audit trail.</p>
+ * <p>The database user's password is persisted in provisioning metadata so the
+ * connection string can be reconstructed and shown on the database detail page
+ * at any time. Every lifecycle action is recorded in the {@code admin_activity}
+ * audit trail.</p>
  *
  * <p><strong>Concurrency contract:</strong> all lifecycle operations for the
  * same database name are serialized per name (see {@link #databaseLocks}).
@@ -156,6 +157,7 @@ public class ProvisioningService {
 
             Instant now = clock.instant();
             ManagedDatabase metadata = new ManagedDatabase(dbName, userName, List.of("readWrite:" + dbName), now, now, null);
+            metadata.setStoredPassword(password);
             managedDatabaseRepository.save(metadata);
             audit(AuditEvent.PROVISION, dbName, userName, now);
             log.info("Provisioned database '{}' with user '{}'", dbName, userName);
@@ -189,6 +191,7 @@ public class ProvisioningService {
                 throw new ProvisioningException("Could not reset password for database '" + dbName + "'", e);
             }
 
+            metadata.setStoredPassword(password);
             metadata.setLastPasswordResetAt(clock.instant());
             managedDatabaseRepository.save(metadata);
             audit(AuditEvent.RESET_PASSWORD, dbName, metadata.getUserName(), metadata.getLastPasswordResetAt());
@@ -307,7 +310,14 @@ public class ProvisioningService {
             throw new DatabaseNotFoundException("Database '" + dbName + "' does not exist");
         }
         Optional<ManagedDatabase> metadata = managedDatabaseRepository.findByDbName(dbName);
-        return toInfo(dbName, metadata.orElse(null), collectionCount(dbName), null);
+        ManagedDatabase md = metadata.orElse(null);
+        // Rebuild the connection string from the stored password so the detail
+        // page always shows it without relying on the one-time flash message.
+        String connectionString = null;
+        if (md != null && md.getStoredPassword() != null) {
+            connectionString = buildConnectionString(md.getUserName(), md.getStoredPassword(), dbName);
+        }
+        return toInfo(dbName, md, collectionCount(dbName), connectionString);
     }
 
     /**
