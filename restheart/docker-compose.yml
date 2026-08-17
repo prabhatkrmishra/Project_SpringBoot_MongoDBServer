@@ -1,0 +1,24 @@
+services:
+  restheart:
+    image: softinstigate/restheart:9.6.0
+    container_name: restheart
+    network_mode: host
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      # MongoDB connection — reads MONGODB_ROOT_USERNAME / MONGODB_ROOT_PASSWORD from .env
+      RHO: >-
+        /mclient/connection-string->"mongodb://${MONGODB_ROOT_USERNAME:-root}:${MONGODB_ROOT_PASSWORD:-root}@127.0.0.1:9812/?authSource=admin";
+        /http-listener/host->"0.0.0.0";
+        /http-listener/port->9814;
+        /authenticator/class->"org.restheart.security.impl.MongoDBRealmAuthenticator";
+        /authenticator/enabled->true;
+        /idm/class->"org.restheart.security.impl.MongoIDRepository";
+        /idm/enabled->true;
+        /authorizer/enabled->true;
+        /authorizer/class->"org.restheart.security.impl.MongoAuthorizer"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9814/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

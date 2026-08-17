@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
     ports:
       # Loopback only: the UI is reachable through the admin app proxy at /mongo-express
-      - "127.0.0.1:9814:8081"
+      - "127.0.0.1:9813:8081"
     environment:
       ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_ROOT_USERNAME:-root}:${MONGODB_ROOT_PASSWORD:-root}@mongo:27017/?authSource=admin
       ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME:-admin}

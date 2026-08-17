@@ -26,6 +26,8 @@ Spring MVC web UI.
 - **Export** — download any collection page as a JSON file.
 - **Audit trail** — every provision/reset/delete is recorded; view the last 10 on
   the dashboard or the full paginated history at `/activity`.
+- **RESTHeart** — optional HTTP/GraphQL/WebSocket API layer for MongoDB.
+  See [RESTHEART.md](RESTHEART.md) for setup instructions.
 - **MongoDB + mongo-express** — all run via Docker Compose.
 - **mongo-express web UI** — [mongo-express](https://github.com/mongo-express/mongo-express)
   is bundled in the stack, but only reachable through the app at `/mongo-express`
@@ -102,7 +104,7 @@ but every page fails: provisioning errors without MongoDB.
 
 The jar connects to: MongoDB at `spring.data.mongodb.uri` (default
 `mongodb://<root>:<pass>@127.0.0.1:9812/?authSource=admin` from `.env`) and the
-bundled mongo-express at `127.0.0.1:9814` (only needed for the `/mongo-express`
+bundled mongo-express at `127.0.0.1:9813` (only needed for the `/mongo-express`
 sidebar UI; without it that page returns 502). mongo-express hosts are not
 configurable via `.env` yet — fixed at `127.0.0.1` in `application.yml`.
 
@@ -226,6 +228,8 @@ Naming is validated and restricted to URL-safe characters; system databases
 
 ```
 compose.yaml                      # MongoDB + mongo-express (mongo-express loopback-bound)
+restheart/                        # RESTHeart Docker setup (HTTP API for MongoDB)
+RESTHEART.md                      # RESTHeart setup & usage guide
 .env / .env.example               # credentials (gitignored)
 src/main/java/com/pkmprojects/mongodbserver
   config/                         # Security, rate limiting, mongo-express proxy, properties, Clock
@@ -262,6 +266,7 @@ This project is built on the shoulders of the following open-source software:
 | [Bootstrap](https://getbootstrap.com/) 5.3.8 (WebJar) | UI styling | MIT |
 | [Bootstrap Icons](https://icons.getbootstrap.com/) 1.13.1 (WebJar) | UI icons | MIT |
 | [Testcontainers](https://testcontainers.com/) | Integration tests against real MongoDB | MIT |
+| [RESTHeart](https://restheart.org/) 9.6.0 (Docker image) | HTTP/GraphQL/WebSocket API layer for MongoDB | AGPL-3.0 |
 | [MongoDB](https://www.mongodb.com/) / [mongo-express](https://github.com/mongo-express/mongo-express) (Docker images) | Local dev stack | SSPL / MIT (respectively) |
 
 ## License
