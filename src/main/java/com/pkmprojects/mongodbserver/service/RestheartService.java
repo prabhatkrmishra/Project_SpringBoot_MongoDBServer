@@ -59,9 +59,15 @@ public class RestheartService {
     }
 
     /**
-     * Creates a new RESTHeart user. The password is bcrypt-hashed before storage.
-     * Duplicate {@code _id} values are handled by the MongoDB unique index —
-     * no pre-check needed.
+     * Creates (or repairs) a RESTHeart user. The password is bcrypt-hashed before
+     * storage. This is an upsert: provisioning must be safely retryable, and a
+     * stale leftover document (e.g. from a database that was deleted outside the
+     * app's own delete flow, or from a previous partially-failed provision) must
+     * not silently keep an old password/roles combination alive. A plain
+     * insert-or-throw here would leave the RESTHeart credentials out of sync with
+     * whatever password the admin was just shown, producing confusing
+     * "access denied" errors against the RESTHeart API even though the app
+     * reported success.
      *
      * @param id       username (used as _id)
      * @param password plaintext password
@@ -72,13 +78,16 @@ public class RestheartService {
                 .append("password", passwordEncoder.encode(password))
                 .append("roles", roles);
         try {
-            usersCollection.insertOne(doc);
-            log.info("Created RESTHeart user '{}' with roles {}", id, roles);
-        } catch (MongoCommandException e) {
-            if (e.getErrorCode() == 11000) {
-                throw new ProvisioningException("RESTHeart user '" + id + "' already exists", e);
+            Document existing = findUser(id);
+            if (existing != null) {
+                usersCollection.replaceOne(new Document("_id", id), doc);
+                log.info("Replaced existing RESTHeart user '{}' with roles {}", id, roles);
+            } else {
+                usersCollection.insertOne(doc);
+                log.info("Created RESTHeart user '{}' with roles {}", id, roles);
             }
-            log.error("Failed to create RESTHeart user '{}'", id, e);
+        } catch (MongoCommandException e) {
+            log.error("Failed to create/replace RESTHeart user '{}'", id, e);
             throw new ProvisioningException("Could not create RESTHeart user '" + id + "'", e);
         }
     }
@@ -103,20 +112,29 @@ public class RestheartService {
     }
 
     /**
-     * Best-effort password update for a RESTHeart user. Does not throw if the
-     * user does not exist or if the update fails — called by provisioning after
-     * the MongoDB password has already been rotated so a failure here should not
-     * roll back the entire operation.
+     * Best-effort password update for a RESTHeart user, called by provisioning
+     * after the MongoDB password has already been rotated. Does not throw if the
+     * update fails, so a RESTHeart-side hiccup does not roll back a MongoDB
+     * password rotation that already succeeded.
+     *
+     * <p>If the RESTHeart user is missing entirely (e.g. an earlier provisioning
+     * step failed before the user was created), this <em>creates</em> it with
+     * default role {@code [id]} rather than silently skipping — a silent skip
+     * here previously left RESTHeart permanently out of sync with no way to
+     * self-heal on the next password reset, producing persistent "access denied"
+     * errors even after the admin thought they'd fixed things by rotating the
+     * password again.</p>
      */
     public void updatePassword(String id, String newPassword) {
-        Document doc = findUser(id);
-        if (doc == null) {
-            log.warn("RESTHeart user '{}' not found — skipping password sync", id);
-            return;
-        }
-        Document update = new Document("$set",
-                new Document("password", passwordEncoder.encode(newPassword)));
         try {
+            Document doc = findUser(id);
+            if (doc == null) {
+                log.warn("RESTHeart user '{}' not found — creating it during password sync", id);
+                createUser(id, newPassword, List.of(id));
+                return;
+            }
+            Document update = new Document("$set",
+                    new Document("password", passwordEncoder.encode(newPassword)));
             usersCollection.updateOne(new Document("_id", id), update);
             log.info("Updated password for RESTHeart user '{}'", id);
         } catch (Exception e) {
@@ -155,6 +173,65 @@ public class RestheartService {
         }
     }
 
+    /**
+     * Charset allowed in Undertow predicate expressions as used by RESTHeart's
+     * ACL rules: identifiers, string literals in single/double quotes, numbers,
+     * and the small set of punctuation the grammar uses (parens, commas, dots,
+     * slashes, colons, braces, brackets, operators, {@code @} for @user
+     * references, {@code $} for placeholders/BSON operators).
+     */
+    private static final java.util.regex.Pattern PREDICATE_CHARSET =
+            java.util.regex.Pattern.compile("[A-Za-z0-9_./:@$*\\-{}\\[\\], '\"()=!<>]+");
+
+    /**
+     * Rejects obviously-malformed ACL predicates before they are written to
+     * {@code restheart.acl}. This is not a full Undertow-predicate-language
+     * parser — it only catches the common failure modes (unbalanced quotes or
+     * parens, disallowed characters, blank input). RESTHeart parses the whole
+     * {@code restheart.acl} collection to build its authorizer, so a single
+     * malformed document written here — most likely via the free-text predicate
+     * field on the manual ACL admin form, rather than the auto-generated
+     * per-database predicate — can affect ACL evaluation for other rules too,
+     * not just this one. Catching syntax problems here, before they reach
+     * RESTHeart, avoids that blast radius.
+     */
+    private void validatePredicateSyntax(String predicate) {
+        if (predicate == null || predicate.isBlank()) {
+            throw new ProvisioningException("ACL predicate must not be blank", null);
+        }
+        if (!PREDICATE_CHARSET.matcher(predicate).matches()) {
+            throw new ProvisioningException(
+                    "ACL predicate contains characters outside the Undertow predicate syntax: " + predicate, null);
+        }
+        int parens = 0;
+        Character quote = null;
+        for (char c : predicate.toCharArray()) {
+            if (quote != null) {
+                if (c == quote) {
+                    quote = null;
+                }
+                continue;
+            }
+            if (c == '\'' || c == '"') {
+                quote = c;
+            } else if (c == '(') {
+                parens++;
+            } else if (c == ')') {
+                parens--;
+                if (parens < 0) {
+                    throw new ProvisioningException("ACL predicate has an unmatched ')': " + predicate, null);
+                }
+            }
+        }
+        if (quote != null) {
+            throw new ProvisioningException("ACL predicate has an unterminated " + quote + " quote: " + predicate,
+                    null);
+        }
+        if (parens != 0) {
+            throw new ProvisioningException("ACL predicate has " + parens + " unmatched '(': " + predicate, null);
+        }
+    }
+
     // ─── ACL ──────────────────────────────────────────────────────────────────
 
     /**
@@ -189,6 +266,7 @@ public class RestheartService {
      */
     public void upsertAclEntry(String id, String predicate, List<String> roles, int priority,
                                boolean allowManagementRequests) {
+        validatePredicateSyntax(predicate);
         Document doc = new Document("_id", id)
                 .append("roles", roles)
                 .append("predicate", predicate)
@@ -212,29 +290,24 @@ public class RestheartService {
     }
 
     /**
-     * Best-effort delete of a RESTHeart user. Tolerates the user not existing
-     * and network errors.
+     * Best-effort delete of a RESTHeart user. Tolerates the user not existing,
+     * but network/server errors are propagated so the caller (see
+     * {@link ProvisioningService#delete}) can surface them instead of leaving a
+     * leftover RESTHeart credential invisibly behind — which previously could
+     * collide with, and corrupt, a later re-provision of the same database name.
      */
     public void deleteUserIfExists(String id) {
-        try {
-            usersCollection.deleteOne(new Document("_id", id));
-            log.info("Deleted RESTHeart user '{}'", id);
-        } catch (Exception e) {
-            log.warn("Could not delete RESTHeart user '{}': {}", id, e.getMessage());
-        }
+        usersCollection.deleteOne(new Document("_id", id));
+        log.info("Deleted RESTHeart user '{}'", id);
     }
 
     /**
-     * Best-effort delete of an ACL entry. Tolerates the entry not existing
-     * and network errors.
+     * Best-effort delete of an ACL entry. Tolerates the entry not existing, but
+     * network/server errors are propagated — see {@link #deleteUserIfExists}.
      */
     public void deleteAclEntryIfExists(String id) {
-        try {
-            aclCollection.deleteOne(new Document("_id", id));
-            log.info("Deleted ACL entry '{}'", id);
-        } catch (Exception e) {
-            log.warn("Could not delete ACL entry '{}': {}", id, e.getMessage());
-        }
+        aclCollection.deleteOne(new Document("_id", id));
+        log.info("Deleted ACL entry '{}'", id);
     }
 
     /**

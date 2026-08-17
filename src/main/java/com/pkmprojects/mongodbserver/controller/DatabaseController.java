@@ -90,8 +90,18 @@ public class DatabaseController {
     @PostMapping("/databases/{dbName}/delete")
     @PreAuthorize("hasRole('ADMIN')")
     public String delete(@PathVariable String dbName, RedirectAttributes redirectAttributes) {
-        provisioningService.delete(dbName);
-        redirectAttributes.addFlashAttribute("flashSuccess", "Database '" + dbName + "' deleted");
+        java.util.List<String> warnings = provisioningService.delete(dbName);
+        if (warnings.isEmpty()) {
+            redirectAttributes.addFlashAttribute("flashSuccess", "Database '" + dbName + "' deleted");
+        } else {
+            // The Mongo database and metadata are gone, but RESTHeart cleanup only
+            // partially succeeded — leftover users/ACL entries there can otherwise
+            // silently corrupt a future re-provision of this same database name.
+            redirectAttributes.addFlashAttribute("flashSuccess", "Database '" + dbName + "' deleted");
+            redirectAttributes.addFlashAttribute("flashWarning",
+                    "RESTHeart cleanup did not fully complete: " + String.join("; ", warnings)
+                            + ". Check /restheart/users and /restheart/acl before reusing this name.");
+        }
         return "redirect:/";
     }
 }

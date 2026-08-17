@@ -117,21 +117,29 @@ public class ProvisioningService {
                     : requestedPassword;
 
             try {
-                mongoDatabaseRepository.createUser(dbName, userName, password);
+                // Database first, then the scoped user: if user creation fails partway
+                // through, dropping the just-created (still-empty) database fully
+                // resets state for a clean retry. The previous order (user, then
+                // database) left an orphaned database-less user on failure that
+                // required a separate cleanup path and could still leave
+                // mongoDatabaseRepository.databaseExists(dbName) == false while a
+                // same-named Mongo user lingered, confusing later retries.
                 mongoDatabaseRepository.createDatabase(dbName);
+                mongoDatabaseRepository.createUser(dbName, userName, password);
             } catch (MongoException e) {
                 if (e instanceof MongoCommandException commandException
                         && commandException.getErrorCode() == MONGO_CODE_USER_ALREADY_EXISTS) {
                     // lost a concurrent provision race - the duplicate user already exists
                     throw new DatabaseAlreadyExistsException("Database user '" + userName + "' already exists");
                 }
-                // Best-effort cleanup of a partially created user so a retry is not blocked.
-                // Widened to MongoException: a timeout/connection failure after the user was
-                // created would otherwise leak an orphaned user.
+                // Best-effort cleanup of the just-created (still-empty) database so a
+                // retry is not blocked by it. Widened to MongoException: a
+                // timeout/connection failure after the database was created would
+                // otherwise leak an orphaned empty database.
                 try {
-                    mongoDatabaseRepository.dropUser(dbName, userName);
+                    mongoDatabaseRepository.dropDatabase(dbName);
                 } catch (MongoException cleanupFailure) {
-                    log.warn("Could not clean up partially created user '{}' after failed provisioning", userName,
+                    log.warn("Could not clean up partially created database '{}' after failed provisioning", dbName,
                             cleanupFailure);
                 }
                 log.error("Failed to provision database '{}' (user '{}')", dbName, userName, e);
@@ -194,11 +202,18 @@ public class ProvisioningService {
      * Drops the database and (if provisioned) its user and metadata. Tolerates a
      * database whose namespace or user is already gone (e.g. an earlier partial
      * failure), so delete is always retryable.
+     *
+     * @return any non-fatal warnings from best-effort RESTHeart cleanup (empty if
+     *         everything succeeded). Deletion of the Mongo database/metadata is
+     *         never blocked by these, but callers should show them to the admin —
+     *         a leftover RESTHeart user/ACL entry from a failed cleanup can
+     *         silently corrupt a future re-provision of the same database name.
      */
-    public void delete(String dbName) {
+    public List<String> delete(String dbName) {
         nameValidator.validateDatabaseName(dbName);
-        withDatabaseLock(dbName, () -> {
+        return withDatabaseLock(dbName, () -> {
             Optional<ManagedDatabase> metadata = managedDatabaseRepository.findByDbName(dbName);
+            List<String> warnings = new ArrayList<>();
 
             try {
                 mongoDatabaseRepository.dropDatabase(dbName);
@@ -210,9 +225,21 @@ public class ProvisioningService {
             }
 
             metadata.ifPresent(m -> {
-                // Best-effort cleanup of RESTHeart API user + ACL
-                restheartService.deleteUserIfExists(m.getUserName());
-                restheartService.deleteAclEntryIfExists(m.getUserName() + "-access");
+                try {
+                    restheartService.deleteUserIfExists(m.getUserName());
+                } catch (Exception e) {
+                    log.error("Could not delete RESTHeart user '{}' while deleting database '{}'",
+                            m.getUserName(), dbName, e);
+                    warnings.add("Could not delete RESTHeart user '" + m.getUserName() + "': " + e.getMessage());
+                }
+                try {
+                    restheartService.deleteAclEntryIfExists(m.getUserName() + "-access");
+                } catch (Exception e) {
+                    log.error("Could not delete ACL entry '{}-access' while deleting database '{}'",
+                            m.getUserName(), dbName, e);
+                    warnings.add("Could not delete RESTHeart ACL entry '" + m.getUserName() + "-access': "
+                            + e.getMessage());
+                }
 
                 // Best-effort: after dropDatabase() the user is already gone
                 // (users live inside the DB). Tolerate UserNotFound and any
@@ -226,7 +253,8 @@ public class ProvisioningService {
 
             metadata.ifPresent(m -> managedDatabaseRepository.deleteByDbName(dbName));
             audit(AuditEvent.DELETE, dbName, metadata.map(ManagedDatabase::getUserName).orElse(null), clock.instant());
-            log.info("Deleted database '{}'", dbName);
+            log.info("Deleted database '{}'{}", dbName, warnings.isEmpty() ? "" : " with warnings: " + warnings);
+            return warnings;
         });
     }
 
@@ -386,26 +414,50 @@ public class ProvisioningService {
 
     /**
      * Creates a RESTHeart user (for API auth) and an ACL rule granting that user
-     * access to the database path. Failures are logged and swallowed — the MongoDB
-     * provision succeeded and the admin can create/fix the RESTHeart side manually.
+     * access to the database path.
+     *
+     * <p>Both calls are now upserts (see {@link RestheartService#createUser} and
+     * {@link RestheartService#upsertAclEntry}), so this is safely retryable. Failures
+     * are <strong>not</strong> swallowed here anymore: previously they were only
+     * logged at {@code warn}, which let provisioning report success to the admin
+     * (with a freshly-generated password shown once) while the RESTHeart side was
+     * left with stale or missing credentials/ACL — producing "access denied"
+     * errors against the RESTHeart API with no indication of what went wrong. The
+     * Mongo-level database and user are already created by this point, so on
+     * failure we surface a clear error telling the admin the RESTHeart side needs
+     * attention, rather than silently pretending everything succeeded.</p>
      */
     private void createRestheartUserAndAcl(String userName, String password, String dbName) {
         try {
             restheartService.createUser(userName, password, List.of(userName));
         } catch (Exception e) {
-            log.warn("Could not create RESTHeart user '{}' — apps will need manual setup: {}",
-                    userName, e.getMessage());
+            log.error("Could not create RESTHeart user '{}' for database '{}'", userName, dbName, e);
+            throw new ProvisioningException(
+                    "Database '" + dbName + "' was created, but the RESTHeart API user '" + userName
+                            + "' could not be provisioned. RESTHeart access will fail until this is fixed "
+                            + "(retry password reset, or fix manually under /restheart/users). Cause: "
+                            + e.getMessage(), e);
         }
         try {
             restheartService.upsertAclEntry(
                     userName + "-access",
-                    "path-prefix('/" + dbName + "')",
+                    // path-prefix() in Undertow's predicate language does a plain string
+                    // prefix match, not a path-segment match: path-prefix('/app') also
+                    // matches '/app2', '/application', '/apple', etc. Anchoring on '/dbName'
+                    // or '/dbName/...' scopes the rule to exactly this database and its
+                    // sub-paths, so a user provisioned for one database can't reach a
+                    // differently-named database that happens to share a prefix.
+                    "path('/" + dbName + "') or path-prefix('/" + dbName + "/')",
                     List.of(userName),
                     100,
                     true);
         } catch (Exception e) {
-            log.warn("Could not create ACL entry for user '{}' — apps will need manual setup: {}",
-                    userName, e.getMessage());
+            log.error("Could not create ACL entry for user '{}' on database '{}'", userName, dbName, e);
+            throw new ProvisioningException(
+                    "Database '" + dbName + "' and RESTHeart user '" + userName
+                            + "' were created, but the ACL rule could not be provisioned. RESTHeart requests will "
+                            + "be denied until this is fixed (retry, or fix manually under /restheart/acl). Cause: "
+                            + e.getMessage(), e);
         }
     }
 }

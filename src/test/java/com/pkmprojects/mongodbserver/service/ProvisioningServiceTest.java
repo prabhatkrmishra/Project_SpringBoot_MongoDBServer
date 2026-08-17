@@ -103,7 +103,7 @@ class ProvisioningServiceTest {
 
         // Verify RESTHeart API user and ACL were created
         verify(restheartService).createUser("appuser", "generatedPass123", List.of("appuser"));
-        verify(restheartService).upsertAclEntry("appuser-access", "path-prefix('/myapp')", List.of("appuser"), 100, true);
+        verify(restheartService).upsertAclEntry("appuser-access", "path('/myapp') or path-prefix('/myapp/')", List.of("appuser"), 100, true);
 
         ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
         verify(auditLogRepository).save(auditCaptor.capture());
@@ -159,14 +159,14 @@ class ProvisioningServiceTest {
     }
 
     @Test
-    void provisionFailureCleansUpPartialUser() {
+    void provisionFailureCleansUpPartialDatabase() {
         org.mockito.Mockito.doThrow(mongoError(13, "Unauthorized"))
-                .when(mongoDatabaseRepository).createUser(eq("myapp"), eq("appuser"), any());
+                .when(mongoDatabaseRepository).createDatabase(eq("myapp"));
 
         assertThatThrownBy(() -> service.provision(new CreateDatabaseForm("myapp", "appuser", "mysecret123")))
                 .isInstanceOf(ProvisioningException.class);
 
-        verify(mongoDatabaseRepository).dropUser("myapp", "appuser");
+        verify(mongoDatabaseRepository).dropDatabase("myapp");
         verify(managedDatabaseRepository, never()).save(any());
     }
 
