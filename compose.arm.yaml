@@ -48,6 +48,9 @@ services:
         /mongoRealmAuthenticator/bcrypt-complexity->12;
         /mongoRealmAuthenticator/create-user->true;
         /mongoAclAuthorizer/enabled->true
+    volumes:
+      - ./restheart-overrides.yml:/opt/restheart/etc/restheart-overrides.yml
+    command: ["-o", "etc/restheart-overrides.yml"]
 
 volumes:
   mongo-data:
