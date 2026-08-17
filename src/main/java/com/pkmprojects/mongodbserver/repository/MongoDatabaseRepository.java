@@ -5,7 +5,9 @@ import org.bson.Document;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Data-access gateway for MongoDB server administration using the MongoDB Java driver:
@@ -30,6 +32,20 @@ public class MongoDatabaseRepository {
         List<String> names = new ArrayList<>();
         mongoClient.listDatabaseNames().forEach(names::add);
         return names;
+    }
+
+    /**
+     * @return map of database name to storage size in bytes (from {@code storageSize} field)
+     */
+    public Map<String, Long> getDatabaseSizes() {
+        Map<String, Long> sizes = new LinkedHashMap<>();
+        mongoClient.listDatabases().forEach(doc -> {
+            String name = doc.getString("name");
+            if (name != null) {
+                sizes.put(name, doc.get("storageSize", 0L));
+            }
+        });
+        return sizes;
     }
 
     /**

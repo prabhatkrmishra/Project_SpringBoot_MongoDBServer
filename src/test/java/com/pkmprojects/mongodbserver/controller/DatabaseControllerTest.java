@@ -50,7 +50,7 @@ class DatabaseControllerTest {
     private ExplorationService explorationService;
 
     private DatabaseInfo databaseInfo() {
-        return new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 1, NOW, NOW, null, true, null);
+        return new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 1, NOW, NOW, null, true, null, 0L);
     }
 
     // ── Provision form ──────────────────────────────────────────────────

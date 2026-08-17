@@ -22,7 +22,8 @@ public record DatabaseInfo(
         Instant updatedAt,
         Instant lastPasswordResetAt,
         boolean provisioned,
-        String connectionString) implements Serializable {
+        String connectionString,
+        long sizeBytes) implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -32,6 +33,6 @@ public record DatabaseInfo(
      */
     public DatabaseInfo withConnectionString(String connectionString) {
         return new DatabaseInfo(dbName, userName, roles, collectionsCount, createdAt, updatedAt,
-                lastPasswordResetAt, provisioned, connectionString);
+                lastPasswordResetAt, provisioned, connectionString, sizeBytes);
     }
 }

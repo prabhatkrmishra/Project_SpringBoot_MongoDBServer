@@ -162,7 +162,7 @@ public class ProvisioningService {
             audit(AuditEvent.PROVISION, dbName, userName, now);
             log.info("Provisioned database '{}' with user '{}'", dbName, userName);
 
-            return toInfo(dbName, metadata, collectionCount(dbName), null)
+            return toInfo(dbName, metadata, collectionCount(dbName), null, 0L)
                     .withConnectionString(buildConnectionString(userName, password, dbName));
         });
     }
@@ -197,7 +197,7 @@ public class ProvisioningService {
             audit(AuditEvent.RESET_PASSWORD, dbName, metadata.getUserName(), metadata.getLastPasswordResetAt());
             log.info("Reset password for user '{}' on database '{}'", metadata.getUserName(), dbName);
 
-            return toInfo(dbName, metadata, collectionCount(dbName), null)
+            return toInfo(dbName, metadata, collectionCount(dbName), null, 0L)
                     .withConnectionString(buildConnectionString(metadata.getUserName(), password, dbName));
         });
     }
@@ -292,9 +292,12 @@ public class ProvisioningService {
         Map<String, ManagedDatabase> byName = managedDatabaseRepository.findAll().stream()
                 .collect(Collectors.toMap(ManagedDatabase::getDbName, Function.identity(), (a, b) -> a, LinkedHashMap::new));
 
+        Map<String, Long> sizes = mongoDatabaseRepository.getDatabaseSizes();
+
         return mongoDatabaseRepository.listDatabaseNames().stream()
                 .filter(dbName -> !MongoNameValidator.SYSTEM_DATABASES.contains(dbName.toLowerCase(Locale.ROOT)))
-                .map(dbName -> toInfo(dbName, byName.get(dbName), collectionCount(dbName), null))
+                .map(dbName -> toInfo(dbName, byName.get(dbName), collectionCount(dbName), null,
+                        sizes.getOrDefault(dbName, 0L)))
                 .sorted(Comparator.comparing(DatabaseInfo::dbName))
                 .toList();
     }
@@ -317,7 +320,8 @@ public class ProvisioningService {
         if (md != null && md.getStoredPassword() != null) {
             connectionString = buildConnectionString(md.getUserName(), md.getStoredPassword(), dbName);
         }
-        return toInfo(dbName, md, collectionCount(dbName), connectionString);
+        long size = mongoDatabaseRepository.getDatabaseSizes().getOrDefault(dbName, 0L);
+        return toInfo(dbName, md, collectionCount(dbName), connectionString, size);
     }
 
     /**
@@ -399,13 +403,14 @@ public class ProvisioningService {
     }
 
     private DatabaseInfo toInfo(String dbName, ManagedDatabase metadata, Integer collectionsCount,
-                                String connectionString) {
+                                String connectionString, long sizeBytes) {
         if (metadata == null) {
-            return new DatabaseInfo(dbName, null, List.of(), collectionsCount, null, null, null, false, connectionString);
+            return new DatabaseInfo(dbName, null, List.of(), collectionsCount, null, null, null, false,
+                    connectionString, sizeBytes);
         }
         return new DatabaseInfo(dbName, metadata.getUserName(), metadata.getRoles(),
                 collectionsCount, metadata.getCreatedAt(), metadata.getUpdatedAt(),
-                metadata.getLastPasswordResetAt(), true, connectionString);
+                metadata.getLastPasswordResetAt(), true, connectionString, sizeBytes);
     }
 
     private boolean isMongoCode(MongoCommandException e, int code) {

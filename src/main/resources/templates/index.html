@@ -112,6 +112,7 @@
                                         <th>Database</th>
                                         <th>User</th>
                                         <th>Collections</th>
+                                        <th>Size</th>
                                         <th>Status</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
@@ -128,6 +129,16 @@
                                         <td>
                                             <span class="badge badge-soft-info"
                                                   th:text="${database.collectionsCount}">0</span>
+                                        </td>
+                                        <td class="text-body-secondary">
+                                            <span th:if="${database.sizeBytes < 1024}"
+                                                  th:text="${database.sizeBytes} + ' B'">0 B</span>
+                                            <span th:if="${database.sizeBytes >= 1024 and database.sizeBytes < 1048576}"
+                                                  th:text="${#numbers.formatDecimal(database.sizeBytes / 1024, 1, 1)} + ' KB'">0 KB</span>
+                                            <span th:if="${database.sizeBytes >= 1048576 and database.sizeBytes < 1073741824}"
+                                                  th:text="${#numbers.formatDecimal(database.sizeBytes / 1048576, 1, 1)} + ' MB'">0 MB</span>
+                                            <span th:if="${database.sizeBytes >= 1073741824}"
+                                                  th:text="${#numbers.formatDecimal(database.sizeBytes / 1073741824, 1, 2)} + ' GB'">0 GB</span>
                                         </td>
                                         <td>
                                             <span class="badge badge-soft-success" th:if="${database.provisioned}">
