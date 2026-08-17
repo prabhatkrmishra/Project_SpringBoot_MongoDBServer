@@ -3,6 +3,7 @@ package com.pkmprojects.mongodbserver.controller;
 import com.pkmprojects.mongodbserver.config.AdminProperties;
 import com.pkmprojects.mongodbserver.config.SecurityConfig;
 import com.pkmprojects.mongodbserver.dto.CollectionInfo;
+import com.pkmprojects.mongodbserver.dto.CreateDatabaseForm;
 import com.pkmprojects.mongodbserver.dto.DatabaseInfo;
 import com.pkmprojects.mongodbserver.dto.ResetPasswordForm;
 import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
@@ -31,7 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * MVC slice tests for database detail, password reset, and delete flows.
+ * MVC slice tests for database provisioning, detail, password reset, and delete flows.
  */
 @WebMvcTest(DatabaseController.class)
 @Import({SecurityConfig.class, DatabaseControllerTest.SecurityTestConfig.class})
@@ -51,6 +52,60 @@ class DatabaseControllerTest {
     private DatabaseInfo databaseInfo() {
         return new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 1, NOW, NOW, null, true, null);
     }
+
+    // ── Provision form ──────────────────────────────────────────────────
+
+    @Test
+    void provisionFormRendersForAdmin() throws Exception {
+        mockMvc.perform(get("/databases/new").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("provision"))
+                .andExpect(model().attributeExists("form"))
+                .andExpect(content().string(containsString("Provision a database")));
+    }
+
+    @Test
+    void provisionFormRequiresAdminRole() throws Exception {
+        mockMvc.perform(get("/databases/new").with(user("bob").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void provisionAsAdminRedirectsToDetail() throws Exception {
+        when(provisioningService.provision(any(CreateDatabaseForm.class))).thenReturn(databaseInfo());
+
+        mockMvc.perform(post("/databases")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf())
+                        .param("dbName", "myapp")
+                        .param("userName", "appuser"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/databases/myapp"));
+
+        verify(provisioningService).provision(any(CreateDatabaseForm.class));
+    }
+
+    @Test
+    void provisionWithInvalidInputRerendersForm() throws Exception {
+        mockMvc.perform(post("/databases")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(view().name("provision"))
+                .andExpect(model().attributeHasFieldErrors("form", "dbName", "userName"));
+
+        verify(provisioningService, never()).provision(any());
+    }
+
+    @Test
+    void provisionWithoutCsrfIsRejected() throws Exception {
+        mockMvc.perform(post("/databases").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden());
+
+        verify(provisioningService, never()).provision(any());
+    }
+
+    // ── Detail ──────────────────────────────────────────────────────────
 
     @Test
     void detailRendersForAuthenticatedUser() throws Exception {

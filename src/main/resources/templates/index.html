@@ -17,7 +17,7 @@
                         <p class="mb-0 text-body-secondary">Provision and manage MongoDB databases with dedicated
                             users.</p>
                     </div>
-                    <a class="btn btn-primary" th:href="@{/#create}" th:if="${canWrite}">
+                    <a class="btn btn-primary" th:href="@{/databases/new}" th:if="${canWrite}">
                         <i class="bi bi-plus-circle me-1"></i> New database
                     </a>
                 </div>
@@ -78,71 +78,6 @@
                     </div>
                 </div>
 
-                <!-- Provision database form -->
-                <section class="card shadow-sm mb-4" id="create" th:if="${canWrite}">
-                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-                        <h2 class="h5 mb-0">
-                            <i class="bi bi-plus-circle text-primary me-2"></i> Provision a database
-                        </h2>
-                        <span class="badge badge-soft-success">
-                            <i class="bi bi-lightning-charge me-1"></i>Quick setup
-                        </span>
-                    </div>
-                    <div class="card-body">
-                        <p class="text-body-secondary mb-4">
-                            Creates a new MongoDB database with a dedicated user that can only read
-                            and write this database. External applications connect with the shown credentials.
-                        </p>
-                        <form class="form-grid" method="post" th:action="@{/databases}" th:object="${form}">
-                            <div class="mb-3">
-                                <label class="form-label" for="dbName">Database name</label>
-                                <input class="form-control" id="dbName" maxlength="64" required
-                                       th:field="*{dbName}"
-                                       type="text" placeholder="e.g., myapp_db">
-                                <div class="form-hint">Letters, digits, '_' and '-'</div>
-                                <div class="text-danger small mt-1" th:errors="*{dbName}"
-                                     th:if="${#fields.hasErrors('dbName')}">Error
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label" for="userName">Database user name</label>
-                                <input class="form-control" id="userName" maxlength="64" required
-                                       th:field="*{userName}" type="text" placeholder="e.g., app_user">
-                                <div class="form-hint">Letters, digits, '.', '_' and '-'</div>
-                                <div class="text-danger small mt-1" th:errors="*{userName}"
-                                     th:if="${#fields.hasErrors('userName')}">Error
-                                </div>
-                            </div>
-                            <div class="mb-3 full">
-                                <label class="form-label" for="password">
-                                    Password <span class="text-body-secondary">(optional)</span>
-                                </label>
-                                <div class="input-group">
-                                    <input autocomplete="new-password" class="form-control" id="password"
-                                           maxlength="128" th:field="*{password}"
-                                           type="password" placeholder="Leave blank to generate">
-                                    <button class="btn btn-outline-secondary" data-toggle-password="password"
-                                            type="button">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                </div>
-                                <div class="form-hint form-hint--note">Leave blank to generate a strong password. Stored securely — viewable on the database detail page.</div>
-                                <div class="text-danger small mt-1" th:errors="*{password}"
-                                     th:if="${#fields.hasErrors('password')}">Error
-                                </div>
-                            </div>
-                            <div class="form-actions">
-                                <button class="btn btn-primary" type="submit">
-                                    <i class="bi bi-plus-lg me-1"></i> Create database
-                                </button>
-                                <button class="btn btn-outline-secondary" type="reset">
-                                    <i class="bi bi-arrow-counterclockwise me-1"></i> Clear
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </section>
-
                 <!-- Databases list -->
                 <section class="card shadow-sm mb-4">
                     <div class="card-header bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -165,8 +100,8 @@
                         <div class="empty-state" th:if="${#lists.isEmpty(databases)}">
                             <span class="empty-state-icon"><i class="bi bi-database"></i></span>
                             <p class="empty-state-title">No databases yet</p>
-                            <p class="empty-state-text">Provision your first database above to get started.</p>
-                            <a class="btn btn-primary mt-3" th:href="@{/#create}" th:if="${canWrite}">
+                            <p class="empty-state-text">Provision your first database to get started.</p>
+                            <a class="btn btn-primary mt-3" th:href="@{/databases/new}" th:if="${canWrite}">
                                 <i class="bi bi-plus-circle me-1"></i> Create your first database
                             </a>
                         </div>

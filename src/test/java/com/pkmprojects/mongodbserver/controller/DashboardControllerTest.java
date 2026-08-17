@@ -2,7 +2,6 @@ package com.pkmprojects.mongodbserver.controller;
 
 import com.pkmprojects.mongodbserver.config.AdminProperties;
 import com.pkmprojects.mongodbserver.config.SecurityConfig;
-import com.pkmprojects.mongodbserver.dto.CreateDatabaseForm;
 import com.pkmprojects.mongodbserver.dto.DatabaseInfo;
 import com.pkmprojects.mongodbserver.model.AuditEvent;
 import com.pkmprojects.mongodbserver.repository.AuditLogRepository;
@@ -13,7 +12,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,8 +19,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -30,8 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * MVC slice tests for the dashboard: rendering, provisioning, and validation
- * error paths.
+ * MVC slice tests for the dashboard: rendering and listing.
  */
 @WebMvcTest({DashboardController.class, LoginController.class})
 @Import({SecurityConfig.class, DashboardControllerTest.SecurityTestConfig.class})
@@ -72,7 +68,6 @@ class DashboardControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
     void dashboardListsDatabasesAndActivity() throws Exception {
         when(provisioningService.listDatabases()).thenReturn(List.of(
                 new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 2, NOW, NOW, null, true, null),
@@ -80,7 +75,7 @@ class DashboardControllerTest {
         when(auditLogRepository.findTop10ByOrderByPerformedAtDesc()).thenReturn(List.of(
                 new AuditEvent(AuditEvent.PROVISION, "myapp", "appuser", "admin", NOW)));
 
-        mockMvc.perform(get("/"))
+        mockMvc.perform(get("/").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(view().name("index"))
                 .andExpect(model().attributeExists("databases", "recentActivity"))
@@ -90,58 +85,13 @@ class DashboardControllerTest {
     }
 
     @Test
-    void provisionAsAdminCreatesDatabaseAndRedirects() throws Exception {
-        when(provisioningService.provision(any(CreateDatabaseForm.class))).thenReturn(
-                new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 1, NOW, NOW, null, true,
-                        "mongodb://appuser:generatedPass123@localhost:27017/myapp"));
+    void dashboardShowsNewDatabaseLink() throws Exception {
+        when(provisioningService.listDatabases()).thenReturn(List.of());
+        when(auditLogRepository.findTop10ByOrderByPerformedAtDesc()).thenReturn(List.of());
 
-        mockMvc.perform(post("/databases")
-                        .with(user("admin").roles("ADMIN"))
-                        .with(csrf())
-                        .param("dbName", "myapp")
-                        .param("userName", "appuser")
-                        .param("password", ""))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/databases/myapp"));
-
-        verify(provisioningService).provision(any(CreateDatabaseForm.class));
-    }
-
-    @Test
-    void provisionWithInvalidFormRerendersDashboard() throws Exception {
-        mockMvc.perform(post("/databases")
-                        .with(user("admin").roles("ADMIN"))
-                        .with(csrf())
-                        .param("dbName", "bad name!")
-                        .param("userName", "appuser"))
+        mockMvc.perform(get("/").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(view().name("index"))
-                .andExpect(model().attributeHasFieldErrors("form", "dbName"));
-
-        verify(provisioningService, never()).provision(any());
-    }
-
-    @Test
-    void nonAdminCannotProvision() throws Exception {
-        mockMvc.perform(post("/databases")
-                        .with(user("bob").roles("USER"))
-                        .with(csrf())
-                        .param("dbName", "myapp")
-                        .param("userName", "appuser"))
-                .andExpect(status().isForbidden());
-
-        verify(provisioningService, never()).provision(any());
-    }
-
-    @Test
-    void provisionWithoutCsrfTokenIsRejected() throws Exception {
-        mockMvc.perform(post("/databases")
-                        .with(user("admin").roles("ADMIN"))
-                        .param("dbName", "myapp")
-                        .param("userName", "appuser"))
-                .andExpect(status().isForbidden());
-
-        verify(provisioningService, never()).provision(any());
+                .andExpect(content().string(containsString("/databases/new")));
     }
 
     @TestConfiguration(proxyBeanMethods = false)

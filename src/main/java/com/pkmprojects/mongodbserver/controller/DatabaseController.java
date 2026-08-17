@@ -1,5 +1,6 @@
 package com.pkmprojects.mongodbserver.controller;
 
+import com.pkmprojects.mongodbserver.dto.CreateDatabaseForm;
 import com.pkmprojects.mongodbserver.dto.DatabaseInfo;
 import com.pkmprojects.mongodbserver.dto.ResetPasswordForm;
 import com.pkmprojects.mongodbserver.service.ExplorationService;
@@ -27,6 +28,35 @@ public class DatabaseController {
     public DatabaseController(ProvisioningService provisioningService, ExplorationService explorationService) {
         this.provisioningService = provisioningService;
         this.explorationService = explorationService;
+    }
+
+    /**
+     * Renders the provisioning form for a new database (admin only).
+     */
+    @GetMapping("/databases/new")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String newDatabaseForm(Model model) {
+        if (!model.containsAttribute("form")) {
+            model.addAttribute("form", new CreateDatabaseForm("", "", ""));
+        }
+        return "provision";
+    }
+
+    /**
+     * Provisions a new database. On success redirects to the new database's
+     * detail page with the show-once credentials in a flash attribute.
+     */
+    @PostMapping("/databases")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String provision(@Valid @ModelAttribute("form") CreateDatabaseForm form,
+                            BindingResult bindingResult, Model model, RedirectAttributes redirectAttributes) {
+        if (bindingResult.hasErrors()) {
+            return "provision";
+        }
+        DatabaseInfo created = provisioningService.provision(form);
+        redirectAttributes.addFlashAttribute("flashSuccess", "Database '" + created.dbName() + "' provisioned");
+        redirectAttributes.addFlashAttribute("newCredentials", created);
+        return "redirect:/databases/" + created.dbName();
     }
 
     /**
