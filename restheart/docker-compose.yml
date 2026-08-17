@@ -3,6 +3,7 @@ services:
     image: softinstigate/restheart:9.6.0
     container_name: restheart
     network_mode: host
+    user: root
     restart: unless-stopped
     env_file: ../.env
     environment:

@@ -1,0 +1,28 @@
+services:
+  mongo:
+    image: mongodb-raspberrypi4-unofficial-r7.0.39:latest
+    container_name: mongodbserver-mongo
+    restart: unless-stopped
+    network_mode: host
+    command: ["mongod", "--bind_ip", "127.0.0.1", "--port", "9812"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-root}
+    volumes:
+      - mongo-data:/data/db
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongodbserver-mongo-express
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_ROOT_USERNAME:-root}:${MONGODB_ROOT_PASSWORD:-root}@127.0.0.1:9812/?authSource=admin
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USERNAME:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD:-admin}
+      ME_CONFIG_SITE_BASEURL: /mongo-express
+    depends_on:
+      - mongo
+
+volumes:
+  mongo-data:
