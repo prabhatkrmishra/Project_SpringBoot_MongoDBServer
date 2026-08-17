@@ -103,7 +103,7 @@ class ProvisioningServiceTest {
 
         // Verify RESTHeart API user and ACL were created
         verify(restheartService).createUser("appuser", "generatedPass123", List.of("appuser"));
-        verify(restheartService).upsertAclEntry("appuser-access", "path-prefix('/myapp')", List.of("appuser"), 100);
+        verify(restheartService).upsertAclEntry("appuser-access", "path-prefix('/myapp')", List.of("appuser"), 100, true);
 
         ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
         verify(auditLogRepository).save(auditCaptor.capture());

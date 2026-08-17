@@ -23,7 +23,9 @@ public record CreateAclEntryForm(
         @Size(max = 256, message = "Roles must be at most 256 characters")
         String roles,
 
-        int priority
+        int priority,
+
+        boolean allowManagementRequests
 ) {
     /**
      * Returns the roles field split by comma, trimmed, and non-empty entries only.

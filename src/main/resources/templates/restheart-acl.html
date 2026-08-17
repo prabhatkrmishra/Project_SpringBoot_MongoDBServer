@@ -72,6 +72,17 @@
                                        th:field="*{priority}" min="0" max="999999">
                                 <div class="form-hint">Higher = evaluated first. Default 100.</div>
                             </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" id="allowManagementRequests" type="checkbox"
+                                           th:field="*{allowManagementRequests}">
+                                    <label class="form-check-label" for="allowManagementRequests">
+                                        Allow management requests
+                                    </label>
+                                </div>
+                                <div class="form-hint">Lets the user create databases and collections via RESTHeart
+                                    (PUT /{db}, PUT /{db}/{collection}).</div>
+                            </div>
                             <div class="form-actions">
                                 <button class="btn btn-primary" type="submit">
                                     <i class="bi bi-plus-lg me-1"></i> Save rule
@@ -107,6 +118,7 @@
                                         <th>Predicate</th>
                                         <th>Roles</th>
                                         <th>Priority</th>
+                                        <th>Management</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
                                 </thead>
@@ -128,10 +140,19 @@
                                         <td>
                                             <span class="text-body-secondary" th:text="${rule['priority']}">100</span>
                                         </td>
+                                        <td>
+                                            <span class="badge badge-soft-success"
+                                                  th:if="${rule['mongo'] != null and rule['mongo']['allowManagementRequests'] == true}">
+                                                <i class="bi bi-check-lg me-1"></i> Yes
+                                            </span>
+                                            <span class="text-body-secondary" th:unless="${rule['mongo'] != null and rule['mongo']['allowManagementRequests'] == true}">
+                                                No
+                                            </span>
+                                        </td>
                                         <td class="text-end text-nowrap">
                                             <div class="btn-group btn-group-sm">
                                                 <button class="btn btn-outline-secondary edit-acl-btn" type="button"
-                                                        th:attr="data-id=${rule['_id']}, data-predicate=${rule['predicate']}, data-roles=${rule['roles']}, data-priority=${rule['priority']}"
+                                                        th:attr="data-id=${rule['_id']}, data-predicate=${rule['predicate']}, data-roles=${rule['roles']}, data-priority=${rule['priority']}, data-mgmt=${rule['mongo'] != null and rule['mongo']['allowManagementRequests'] == true}"
                                                         title="Edit rule">
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
@@ -165,6 +186,7 @@
                     document.getElementById('aclPredicate').value = btn.getAttribute('data-predicate') || '';
                     document.getElementById('aclRoles').value = btn.getAttribute('data-roles') || '';
                     document.getElementById('aclPriority').value = btn.getAttribute('data-priority') || '100';
+                    document.getElementById('allowManagementRequests').checked = btn.getAttribute('data-mgmt') === 'true';
                     document.getElementById('ruleId').focus();
                     window.scrollTo({top: 0, behavior: 'smooth'});
                 });

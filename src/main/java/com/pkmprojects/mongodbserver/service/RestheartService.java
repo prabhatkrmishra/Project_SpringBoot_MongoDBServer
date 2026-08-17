@@ -180,24 +180,30 @@ public class RestheartService {
     /**
      * Creates or updates an ACL entry using RESTHeart's predicate-based format.
      *
-     * @param id        unique identifier for the rule
-     * @param predicate undertow predicate expression (e.g. {@code path-prefix('/')})
-     * @param roles     roles that can access this pattern (e.g. ["user"])
-     * @param priority  evaluation precedence (higher = evaluated first)
+     * @param id                      unique identifier for the rule
+     * @param predicate               undertow predicate expression (e.g. {@code path-prefix('/')})
+     * @param roles                   roles that can access this pattern (e.g. ["user"])
+     * @param priority                evaluation precedence (higher = evaluated first)
+     * @param allowManagementRequests when true, allows the user to create databases and
+     *                                collections via RESTHeart (e.g. PUT /{db}/{collection})
      */
-    public void upsertAclEntry(String id, String predicate, List<String> roles, int priority) {
+    public void upsertAclEntry(String id, String predicate, List<String> roles, int priority,
+                               boolean allowManagementRequests) {
         Document doc = new Document("_id", id)
                 .append("roles", roles)
                 .append("predicate", predicate)
                 .append("priority", priority);
+        if (allowManagementRequests) {
+            doc.append("mongo", new Document("allowManagementRequests", true));
+        }
         try {
             Document existing = findAclEntry(id);
             if (existing != null) {
                 aclCollection.replaceOne(new Document("_id", id), doc);
-                log.info("Updated ACL entry '{}': predicate={}, roles={}", id, predicate, roles);
+                log.info("Updated ACL entry '{}': predicate={}, roles={}, management={}", id, predicate, roles, allowManagementRequests);
             } else {
                 aclCollection.insertOne(doc);
-                log.info("Created ACL entry '{}': predicate={}, roles={}", id, predicate, roles);
+                log.info("Created ACL entry '{}': predicate={}, roles={}, management={}", id, predicate, roles, allowManagementRequests);
             }
         } catch (MongoCommandException e) {
             log.error("Failed to upsert ACL entry '{}'", id, e);

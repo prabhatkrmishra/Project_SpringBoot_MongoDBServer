@@ -401,7 +401,8 @@ public class ProvisioningService {
                     userName + "-access",
                     "path-prefix('/" + dbName + "')",
                     List.of(userName),
-                    100);
+                    100,
+                    true);
         } catch (Exception e) {
             log.warn("Could not create ACL entry for user '{}' — apps will need manual setup: {}",
                     userName, e.getMessage());
