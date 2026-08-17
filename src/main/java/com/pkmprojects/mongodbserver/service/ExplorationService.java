@@ -61,9 +61,9 @@ public class ExplorationService {
             throw new DatabaseNotFoundException("Collection '" + collectionName + "' does not exist");
         }
 
-        int safePage = Math.max(page, 1);
         long totalCount = countDocuments(dbName, collectionName);
         int totalPages = (int) Math.ceil((double) totalCount / DEFAULT_PAGE_SIZE);
+        int safePage = Math.max(1, Math.min(page, Math.max(totalPages, 1)));
         int skip = (safePage - 1) * DEFAULT_PAGE_SIZE;
 
         List<String> documents = mongoDatabaseRepository.findDocuments(dbName, collectionName, skip, DEFAULT_PAGE_SIZE)

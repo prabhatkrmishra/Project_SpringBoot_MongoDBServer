@@ -107,6 +107,41 @@ class ExplorationServiceTest {
     }
 
     @Test
+    void getDocumentsClampsExcessPageToLastPage() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
+        when(mongoDatabaseRepository.collectionExists("myapp", "items")).thenReturn(true);
+        when(mongoDatabaseRepository.countDocuments("myapp", "items")).thenReturn(120L);
+        // page 9999 exceeds totalPages (3) → clamped to page 3, skip=100
+        when(mongoDatabaseRepository.findDocuments("myapp", "items", 100, 50))
+                .thenReturn(documents(20));
+
+        DocumentPage page = service.getDocuments("myapp", "items", 9999);
+
+        assertThat(page.page()).isEqualTo(3);
+        assertThat(page.totalPages()).isEqualTo(3);
+        assertThat(page.documents()).hasSize(20);
+        assertThat(page.hasPrev()).isTrue();
+        assertThat(page.hasNext()).isFalse();
+    }
+
+    @Test
+    void getDocumentsClampsExcessPageOnEmptyCollection() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
+        when(mongoDatabaseRepository.collectionExists("myapp", "items")).thenReturn(true);
+        when(mongoDatabaseRepository.countDocuments("myapp", "items")).thenReturn(0L);
+        when(mongoDatabaseRepository.findDocuments("myapp", "items", 0, 50))
+                .thenReturn(List.of());
+
+        DocumentPage page = service.getDocuments("myapp", "items", 5);
+
+        assertThat(page.page()).isEqualTo(1);
+        assertThat(page.totalPages()).isZero();
+        assertThat(page.documents()).isEmpty();
+        assertThat(page.hasPrev()).isFalse();
+        assertThat(page.hasNext()).isFalse();
+    }
+
+    @Test
     void getDocumentsOnMissingCollectionThrows() {
         when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
         when(mongoDatabaseRepository.collectionExists("myapp", "nope")).thenReturn(false);
