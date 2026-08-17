@@ -38,16 +38,14 @@ app:
   admin:
     username: ${APP_ADMIN_USERNAME:admin}
     password: ${APP_ADMIN_PASSWORD:admin}
-  # Public Mongo host used in the connection strings shown in the UI (set when
-  # Mongo is reachable via a domain name, e.g. behind a reverse proxy/tunnel).
-  # Add ":port" only if clients must reach a non-default port (drivers default
-  # to 27017). Empty by default: derived from spring.mongodb.uri / local fallback.
-  mongo-public-host: ${MONGODB_PUBLIC_HOST:}
   # Bundled mongo-express UI, reverse-proxied at /mongo-express (from .env)
   mongo-express:
     base-url: ${MONGO_EXPRESS_BASE_URL:http://127.0.0.1:9813/mongo-express}
     username: ${MONGO_EXPRESS_USERNAME:admin}
     password: ${MONGO_EXPRESS_PASSWORD:admin}
+  # RESTHeart HTTP API base URL shown in the connection-info card (env vars block).
+  # Set RESTHEART_URL when RESTHeart is behind a tunnel/proxy.
+  restheart-url: ${RESTHEART_URL:http://localhost:9814}
   # Brute-force protection on the login form (attempts per IP+username per window)
   login-rate-limit:
     max-attempts: 5

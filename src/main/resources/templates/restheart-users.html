@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('RESTHeart Users')}"></head>
+<body>
+    <div class="layout">
+        <aside th:replace="~{fragments/nav :: nav('restheart-users')}"></aside>
+
+        <div class="main">
+            <div th:replace="~{fragments/nav :: flash}"></div>
+
+            <main class="container-xxl py-4">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a class="link-primary" th:href="@{/}">Dashboard</a></li>
+                        <li class="breadcrumb-item active">RESTHeart Users</li>
+                    </ol>
+                </nav>
+
+                <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                    <div>
+                        <h1 class="mb-1">RESTHeart Users</h1>
+                        <p class="mb-0 text-body-secondary">Manage HTTP Basic credentials that RESTHeart accepts for
+                            API access.</p>
+                    </div>
+                </div>
+
+                <!-- Create user form -->
+                <section class="card shadow-sm mb-4">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                        <h2 class="h5 mb-0">
+                            <i class="bi bi-person-plus text-primary me-2"></i> Add user
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-body-secondary mb-4">
+                            Creates a new RESTHeart user with bcrypt-hashed password. The user can authenticate via
+                            HTTP Basic to access the RESTHeart API.
+                        </p>
+                        <form class="form-grid" method="post" th:action="@{/restheart/users}" th:object="${createForm}">
+                            <div class="mb-3">
+                                <label class="form-label" for="rhUserName">Username</label>
+                                <input class="form-control" id="rhUserName" maxlength="64" required
+                                       th:field="*{userName}" type="text" placeholder="e.g., taskpilot_ai_user">
+                                <div class="form-hint">Letters, digits, '.', '_' and '-'</div>
+                                <div class="text-danger small mt-1" th:errors="*{userName}"
+                                     th:if="${#fields.hasErrors('userName')}">Error
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="rhPassword">Password</label>
+                                <div class="input-group">
+                                    <input autocomplete="new-password" class="form-control" id="rhPassword"
+                                           maxlength="128" required th:field="*{password}"
+                                           type="password" placeholder="Minimum 8 characters">
+                                    <button class="btn btn-outline-secondary" data-toggle-password="rhPassword"
+                                            type="button">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="form-hint">Minimum 8 characters. Stored as bcrypt hash.</div>
+                                <div class="text-danger small mt-1" th:errors="*{password}"
+                                     th:if="${#fields.hasErrors('password')}">Error
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="rhRoles">Roles</label>
+                                <input class="form-control" id="rhRoles" maxlength="256"
+                                       th:field="*{roles}" type="text" placeholder="e.g., user, admin">
+                                <div class="form-hint">Comma-separated. Must match ACL role entries.</div>
+                                <div class="text-danger small mt-1" th:errors="*{roles}"
+                                     th:if="${#fields.hasErrors('roles')}">Error
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="bi bi-plus-lg me-1"></i> Create user
+                                </button>
+                                <button class="btn btn-outline-secondary" type="reset">
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i> Clear
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Users list -->
+                <section class="card shadow-sm mb-4">
+                    <div class="card-header bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h2 class="h5 mb-0">
+                            <i class="bi bi-people text-primary me-2"></i> Users
+                        </h2>
+                        <span class="badge badge-soft-info" th:text="${#lists.size(users)} + ' users'">0 users</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="empty-state" th:if="${#lists.isEmpty(users)}">
+                            <span class="empty-state-icon"><i class="bi bi-people"></i></span>
+                            <p class="empty-state-title">No RESTHeart users</p>
+                            <p class="empty-state-text">Create a user above to enable HTTP Basic authentication for the
+                                API.</p>
+                        </div>
+                        <div class="table-responsive" th:if="${!#lists.isEmpty(users)}">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Roles</th>
+                                        <th>Password</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="user : ${users}">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-person text-primary me-2"></i>
+                                                <span class="fw-medium" th:text="${user['_id']}">user</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-soft-info" th:each="role : ${user['roles']}"
+                                                  th:text="${role}">role</span>
+                                        </td>
+                                        <td>
+                                            <code class="text-body-secondary small"
+                                                  th:text="${#strings.abbreviate(user['password'], 30)}">bcrypt...</code>
+                                        </td>
+                                        <td class="text-end text-nowrap">
+                                            <div class="btn-group btn-group-sm">
+                                                <a class="btn btn-outline-secondary"
+                                                   th:href="@{/restheart/users/{id}/reset(id=${user['_id']})}"
+                                                   title="Reset password">
+                                                    <i class="bi bi-key"></i>
+                                                </a>
+                                                <form class="d-inline"
+                                                      method="post"
+                                                      th:action="@{/restheart/users/{id}/delete(id=${user['_id']})}"
+                                                      th:attr="data-confirm='Delete RESTHeart user ' + ${user['_id']} + '? This cannot be undone.'">
+                                                    <button class="btn btn-outline-danger" type="submit"
+                                                            title="Delete user">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

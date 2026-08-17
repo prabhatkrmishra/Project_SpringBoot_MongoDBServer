@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('RESTHeart ACL')}"></head>
+<body>
+    <div class="layout">
+        <aside th:replace="~{fragments/nav :: nav('restheart-acl')}"></aside>
+
+        <div class="main">
+            <div th:replace="~{fragments/nav :: flash}"></div>
+
+            <main class="container-xxl py-4">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a class="link-primary" th:href="@{/}">Dashboard</a></li>
+                        <li class="breadcrumb-item active">RESTHeart ACL</li>
+                    </ol>
+                </nav>
+
+                <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                    <div>
+                        <h1 class="mb-1">RESTHeart Access Control</h1>
+                        <p class="mb-0 text-body-secondary">Define which URL patterns each role can access through the
+                            RESTHeart API.</p>
+                    </div>
+                </div>
+
+                <!-- Create / edit ACL form -->
+                <section class="card shadow-sm mb-4">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                        <h2 class="h5 mb-0">
+                            <i class="bi bi-shield-plus text-primary me-2"></i> Add / update rule
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-body-secondary mb-4">
+                            ACL rules control which HTTP methods and URL patterns are accessible to each role. Set the
+                            Rule ID to an existing ID to update that rule.
+                        </p>
+                        <form class="form-grid" method="post" th:action="@{/restheart/acl}" th:object="${aclForm}">
+                            <div class="mb-3">
+                                <label class="form-label" for="ruleId">Rule ID</label>
+                                <input class="form-control" id="ruleId" maxlength="64" required
+                                       th:field="*{ruleId}" type="text" placeholder="e.g., user-db-access">
+                                <div class="form-hint">Unique identifier. Letters, digits, '.', '_' and '-'</div>
+                                <div class="text-danger small mt-1" th:errors="*{ruleId}"
+                                     th:if="${#fields.hasErrors('ruleId')}">Error
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="aclUrl">URL pattern</label>
+                                <input class="form-control" id="aclUrl" maxlength="256" required
+                                       th:field="*{url}" type="text" placeholder="e.g., /taskpilot-ai/*">
+                                <div class="form-hint">RESTHeart URL path pattern. Use /* for wildcard.</div>
+                                <div class="text-danger small mt-1" th:errors="*{url}"
+                                     th:if="${#fields.hasErrors('url')}">Error
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="aclMethods">Methods</label>
+                                <input class="form-control" id="aclMethods" maxlength="256"
+                                       th:field="*{methods}" type="text" placeholder="e.g., GET, POST, PUT, DELETE, PATCH">
+                                <div class="form-hint">Comma-separated HTTP methods. Leave blank for all.</div>
+                                <div class="text-danger small mt-1" th:errors="*{methods}"
+                                     th:if="${#fields.hasErrors('methods')}">Error
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="aclRoles">Roles</label>
+                                <input class="form-control" id="aclRoles" maxlength="256"
+                                       th:field="*{roles}" type="text" placeholder="e.g., user, admin">
+                                <div class="form-hint">Comma-separated roles. Must match user role entries.</div>
+                                <div class="text-danger small mt-1" th:errors="*{roles}"
+                                     th:if="${#fields.hasErrors('roles')}">Error
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" id="authRequired" type="checkbox"
+                                           th:field="*{authenticationRequired}">
+                                    <label class="form-check-label" for="authRequired">Authentication
+                                        required</label>
+                                </div>
+                                <div class="form-hint">When enabled, unauthenticated requests are rejected.</div>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="bi bi-plus-lg me-1"></i> Save rule
+                                </button>
+                                <button class="btn btn-outline-secondary" type="reset">
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i> Clear
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- ACL list -->
+                <section class="card shadow-sm mb-4">
+                    <div class="card-header bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h2 class="h5 mb-0">
+                            <i class="bi bi-list-check text-primary me-2"></i> Rules
+                        </h2>
+                        <span class="badge badge-soft-info" th:text="${#lists.size(acl)} + ' rules'">0 rules</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="empty-state" th:if="${#lists.isEmpty(acl)}">
+                            <span class="empty-state-icon"><i class="bi bi-list-check"></i></span>
+                            <p class="empty-state-title">No ACL rules</p>
+                            <p class="empty-state-text">Add a rule above to control API access. Without rules, all
+                                requests are denied.</p>
+                        </div>
+                        <div class="table-responsive" th:if="${!#lists.isEmpty(acl)}">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Rule ID</th>
+                                        <th>URL</th>
+                                        <th>Methods</th>
+                                        <th>Roles</th>
+                                        <th>Auth</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="rule : ${acl}">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-shield-check text-primary me-2"></i>
+                                                <span class="fw-medium" th:text="${rule['_id']}">rule</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <code th:text="${rule['url']}">/</code>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-soft-secondary" th:each="m : ${rule['methods']}"
+                                                  th:text="${m}">GET</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-soft-info" th:each="r : ${rule['roles']}"
+                                                  th:text="${r}">user</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-soft-success"
+                                                  th:if="${rule['authentication-required']}">required</span>
+                                            <span class="badge badge-soft-secondary"
+                                                  th:if="${!rule['authentication-required']}">open</span>
+                                        </td>
+                                        <td class="text-end text-nowrap">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-secondary edit-acl-btn" type="button"
+                                                        th:attr="data-id=${rule['_id']}, data-url=${rule['url']}, data-methods=${rule['methods']}, data-roles=${rule['roles']}, data-auth=${rule['authentication-required']}"
+                                                        title="Edit rule">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <form class="d-inline"
+                                                      method="post"
+                                                      th:action="@{/restheart/acl/{id}/delete(id=${rule['_id']})}"
+                                                      th:attr="data-confirm='Delete ACL rule ' + ${rule['_id']} + '?'">
+                                                    <button class="btn btn-outline-danger" type="submit"
+                                                            title="Delete rule">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.edit-acl-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    document.getElementById('ruleId').value = btn.getAttribute('data-id') || '';
+                    document.getElementById('aclUrl').value = btn.getAttribute('data-url') || '';
+                    document.getElementById('aclMethods').value = btn.getAttribute('data-methods') || '';
+                    document.getElementById('aclRoles').value = btn.getAttribute('data-roles') || '';
+                    document.getElementById('authRequired').checked = btn.getAttribute('data-auth') === 'true';
+                    document.getElementById('ruleId').focus();
+                    window.scrollTo({top: 0, behavior: 'smooth'});
+                });
+            });
+        });
+        /*]]>*/
+    </script>
+</body>
+</html>

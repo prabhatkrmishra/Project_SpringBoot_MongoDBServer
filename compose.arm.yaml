@@ -24,5 +24,24 @@ services:
     depends_on:
       - mongo
 
+  restheart:
+    image: softinstigate/restheart:9.6.0
+    container_name: mongodbserver-restheart
+    restart: unless-stopped
+    network_mode: host
+    user: root
+    env_file: .env
+    environment:
+      RHO: >-
+        /mclient/connection-string->"mongodb://${MONGODB_ROOT_USERNAME:-root}:${MONGODB_ROOT_PASSWORD:-root}@127.0.0.1:9812/?authSource=admin";
+        /http-listener/host->"0.0.0.0";
+        /http-listener/port->9814;
+        /authenticator/class->"org.restheart.security.impl.MongoDBRealmAuthenticator";
+        /authenticator/enabled->true;
+        /idm/class->"org.restheart.security.impl.MongoIDRepository";
+        /idm/enabled->true;
+        /authorizer/enabled->true;
+        /authorizer/class->"org.restheart.security.impl.MongoAuthorizer"
+
 volumes:
   mongo-data:

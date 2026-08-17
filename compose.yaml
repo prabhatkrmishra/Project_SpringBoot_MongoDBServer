@@ -32,5 +32,33 @@ services:
     depends_on:
       - mongo
 
+  restheart:
+    image: softinstigate/restheart:9.6.0
+    container_name: mongodbserver-restheart
+    restart: unless-stopped
+    ports:
+      - "9814:9814"
+    user: root
+    env_file: .env
+    environment:
+      # Inside the Docker network, mongo resolves to the mongo service name.
+      RHO: >-
+        /mclient/connection-string->"mongodb://${MONGODB_ROOT_USERNAME:-root}:${MONGODB_ROOT_PASSWORD:-root}@mongo:27017/?authSource=admin";
+        /http-listener/host->"0.0.0.0";
+        /http-listener/port->9814;
+        /authenticator/class->"org.restheart.security.impl.MongoDBRealmAuthenticator";
+        /authenticator/enabled->true;
+        /idm/class->"org.restheart.security.impl.MongoIDRepository";
+        /idm/enabled->true;
+        /authorizer/enabled->true;
+        /authorizer/class->"org.restheart.security.impl.MongoAuthorizer"
+    depends_on:
+      - mongo
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:9814/ping')\" || python -c \"import urllib2; urllib2.urlopen('http://localhost:9814/ping')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   mongo-data:

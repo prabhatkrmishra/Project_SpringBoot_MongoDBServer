@@ -21,7 +21,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
@@ -94,25 +93,8 @@ public class ProvisioningService {
     }
 
     /**
-     * Percent-encodes a URI userinfo component (unreserved characters kept as-is).
-     */
-    private static String uriEncode(String value) {
-        StringBuilder encoded = new StringBuilder(value.length());
-        for (byte b : value.getBytes(StandardCharsets.UTF_8)) {
-            if ((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
-                    || b == '-' || b == '.' || b == '_' || b == '~') {
-                encoded.append((char) b);
-            } else {
-                encoded.append('%').append(Character.toUpperCase(Character.forDigit((b >> 4) & 0xF, 16)))
-                        .append(Character.toUpperCase(Character.forDigit(b & 0xF, 16)));
-            }
-        }
-        return encoded.toString();
-    }
-
-    /**
      * Creates a database and a Mongo user with readWrite rights scoped to it.
-     * The returned {@link DatabaseInfo} carries the connection string (with password)
+     * The returned {@link DatabaseInfo} carries the RESTHeart env vars (with password)
      * for the "show once" flash message.
      */
     public DatabaseInfo provision(CreateDatabaseForm form) {
@@ -161,12 +143,12 @@ public class ProvisioningService {
             log.info("Provisioned database '{}' with user '{}'", dbName, userName);
 
             return toInfo(dbName, metadata, collectionCount(dbName), null)
-                    .withConnectionString(buildConnectionString(userName, password, dbName));
+                    .withRestheartEnvVars(buildRestheartEnvVars(userName, password, dbName), resolveRestheartUrl());
         });
     }
 
     /**
-     * Rotates the provisioned user's password. Returns the new connection string
+     * Rotates the provisioned user's password. Returns the new env vars
      * (shown once).
      */
     public DatabaseInfo resetPassword(String dbName, ResetPasswordForm form) {
@@ -195,7 +177,7 @@ public class ProvisioningService {
             log.info("Reset password for user '{}' on database '{}'", metadata.getUserName(), dbName);
 
             return toInfo(dbName, metadata, collectionCount(dbName), null)
-                    .withConnectionString(buildConnectionString(metadata.getUserName(), password, dbName));
+                    .withRestheartEnvVars(buildRestheartEnvVars(metadata.getUserName(), password, dbName), resolveRestheartUrl());
         });
     }
 
@@ -311,27 +293,15 @@ public class ProvisioningService {
     }
 
     /**
-     * Host portion for connection strings: the explicit
-     * {@code app.mongo-public-host} (e.g. {@code mongo.pkmprojects.online:9812})
-     * when set, otherwise derived from the active {@code spring.mongodb.uri}
-     * (e.g. Atlas cluster) or 127.0.0.1:9812.
+     * RESTHeart HTTP API base URL shown in the connection-info card.
+     * Set via {@code RESTHEART_URL} env var; defaults to {@code http://localhost:9814}.
      */
-    String resolveConnectionHost() {
-        String publicHost = environment.getProperty("app.mongo-public-host", "");
-        if (publicHost != null && !publicHost.isBlank()) {
-            return publicHost;
+    String resolveRestheartUrl() {
+        String url = environment.getProperty("app.restheart-url", "");
+        if (url != null && !url.isBlank()) {
+            return url;
         }
-        String uri = environment.getProperty("spring.mongodb.uri", "");
-        if (uri.isBlank()) {
-            return "127.0.0.1:9812";
-        }
-        int at = uri.lastIndexOf('@');
-        if (at < 0) {
-            return "127.0.0.1:9812";
-        }
-        String rest = uri.substring(at + 1);
-        int slash = rest.indexOf('/');
-        return slash < 0 ? rest : rest.substring(0, slash);
+        return "http://localhost:9814";
     }
 
     private void requireDatabase(String dbName) {
@@ -367,17 +337,16 @@ public class ProvisioningService {
         return authentication != null && authentication.getName() != null ? authentication.getName() : "unknown";
     }
 
-    private String buildConnectionString(String userName, String password, String dbName) {
-        // RFC 3986: '@', '/', '?', '#', '%' and friends inside credentials must be
-        // percent-encoded or the generated URI is not dialable. Generated passwords
-        // deliberately contain '@', '#', '%', so this is not a corner case.
-        //
-        // The provisioned user lives in <db>.system.users, so the URI path names the
-        // database and the explicit authSource keeps authentication unambiguous for
-        // every driver. Consumers connect directly to MongoDB with this string - the
-        // app is only the credential-issuing control plane, never a data-plane proxy.
-        return "mongodb://" + uriEncode(userName) + ":" + uriEncode(password) + "@" + resolveConnectionHost() + "/" + dbName
-                + "?authSource=" + dbName;
+    /**
+     * Builds a copy-pasteable env-vars block for the RESTHeart connection info.
+     * Shown once after provisioning or password reset.
+     */
+    private String buildRestheartEnvVars(String userName, String password, String dbName) {
+        String url = resolveRestheartUrl();
+        return "RESTHEART_URL=" + url + "\n"
+                + "DB_USER=" + userName + "\n"
+                + "DB_PASS=" + password + "\n"
+                + "MONGODB_DB=" + dbName;
     }
 
     private int collectionCount(String dbName) {
@@ -389,13 +358,13 @@ public class ProvisioningService {
     }
 
     private DatabaseInfo toInfo(String dbName, ManagedDatabase metadata, Integer collectionsCount,
-                                String connectionString) {
+                                String restheartEnvVars) {
         if (metadata == null) {
-            return new DatabaseInfo(dbName, null, List.of(), collectionsCount, null, null, null, false, connectionString);
+            return new DatabaseInfo(dbName, null, List.of(), collectionsCount, null, null, null, false, restheartEnvVars, resolveRestheartUrl());
         }
         return new DatabaseInfo(dbName, metadata.getUserName(), metadata.getRoles(),
                 collectionsCount, metadata.getCreatedAt(), metadata.getUpdatedAt(),
-                metadata.getLastPasswordResetAt(), true, connectionString);
+                metadata.getLastPasswordResetAt(), true, restheartEnvVars, resolveRestheartUrl());
     }
 
     private boolean isMongoCode(MongoCommandException e, int code) {

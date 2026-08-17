@@ -66,10 +66,10 @@ class ProvisioningServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Only exercised by tests that build a connection string; lenient so the
+        // Only exercised by tests that build RESTHeart env vars; lenient so the
         // lifecycle-only tests do not trip Mockito's strict stubbing.
-        lenient().when(environment.getProperty("spring.mongodb.uri", ""))
-                .thenReturn("mongodb://root:root@localhost:27017/?authSource=admin");
+        lenient().when(environment.getProperty("app.restheart-url", ""))
+                .thenReturn("http://localhost:9814");
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("admin", "n/a", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
         service = new ProvisioningService(mongoDatabaseRepository, managedDatabaseRepository,
@@ -106,7 +106,7 @@ class ProvisioningServiceTest {
         assertThat(auditCaptor.getValue().getPerformedAt()).isEqualTo(NOW);
 
         assertThat(info.provisioned()).isTrue();
-        assertThat(info.connectionString()).isEqualTo("mongodb://appuser:generatedPass123@localhost:27017/myapp?authSource=myapp");
+        assertThat(info.restheartEnvVars()).isEqualTo("RESTHEART_URL=http://localhost:9814\nDB_USER=appuser\nDB_PASS=generatedPass123\nMONGODB_DB=myapp");
     }
 
     @Test
@@ -114,24 +114,24 @@ class ProvisioningServiceTest {
         DatabaseInfo info = service.provision(new CreateDatabaseForm("myapp", "appuser", "mysecret123"));
 
         verify(mongoDatabaseRepository).createUser("myapp", "appuser", "mysecret123");
-        assertThat(info.connectionString()).contains("appuser:mysecret123@");
+        assertThat(info.restheartEnvVars()).contains("DB_USER=appuser\nDB_PASS=mysecret123\nMONGODB_DB=myapp");
     }
 
     @Test
-    void buildConnectionStringPercentEncodesCredentials() {
+    void buildRestheartEnvVarsIncludesPasswordAsIs() {
         when(passwordGenerator.generate(16)).thenReturn("p@ss#word/x?y");
 
         DatabaseInfo info = service.provision(new CreateDatabaseForm("myapp", "app.user", ""));
 
-        assertThat(info.connectionString())
-                .isEqualTo("mongodb://app.user:p%40ss%23word%2Fx%3Fy@localhost:27017/myapp?authSource=myapp");
+        assertThat(info.restheartEnvVars())
+                .isEqualTo("RESTHEART_URL=http://localhost:9814\nDB_USER=app.user\nDB_PASS=p@ss#word/x?y\nMONGODB_DB=myapp");
     }
 
     @Test
     void provisionEncodesSpecialCharactersInUserSuppliedPassword() {
         DatabaseInfo info = service.provision(new CreateDatabaseForm("myapp", "appuser", "s3cret%#@:"));
 
-        assertThat(info.connectionString()).isEqualTo("mongodb://appuser:s3cret%25%23%40%3A@localhost:27017/myapp?authSource=myapp");
+        assertThat(info.restheartEnvVars()).isEqualTo("RESTHEART_URL=http://localhost:9814\nDB_USER=appuser\nDB_PASS=s3cret%#@:\nMONGODB_DB=myapp");
     }
 
     @Test
@@ -182,7 +182,7 @@ class ProvisioningServiceTest {
         DatabaseInfo info = service.resetPassword("myapp", new ResetPasswordForm("newsecret456"));
 
         verify(mongoDatabaseRepository).updateUserPassword("myapp", "appuser", "newsecret456");
-        assertThat(info.connectionString()).isEqualTo("mongodb://appuser:newsecret456@localhost:27017/myapp?authSource=myapp");
+        assertThat(info.restheartEnvVars()).isEqualTo("RESTHEART_URL=http://localhost:9814\nDB_USER=appuser\nDB_PASS=newsecret456\nMONGODB_DB=myapp");
         assertThat(metadata.getLastPasswordResetAt()).isEqualTo(NOW);
         verify(managedDatabaseRepository).save(metadata);
 
@@ -345,22 +345,12 @@ class ProvisioningServiceTest {
     }
 
     @Test
-    void resolveConnectionHostStripsCredentialsAndQuery() {
-        when(environment.getProperty("app.mongo-public-host", "")).thenReturn("");
-        when(environment.getProperty("spring.mongodb.uri", ""))
-                .thenReturn("mongodb+srv://root:root@cluster0.abcd.mongodb.net/?retryWrites=true&w=majority");
-        assertThat(service.resolveConnectionHost()).isEqualTo("cluster0.abcd.mongodb.net");
+    void resolveRestheartUrlReturnsConfiguredValue() {
+        when(environment.getProperty("app.restheart-url", "")).thenReturn("https://mongoapi.pkmprojects.online");
+        assertThat(service.resolveRestheartUrl()).isEqualTo("https://mongoapi.pkmprojects.online");
 
-        when(environment.getProperty("spring.mongodb.uri", ""))
-                .thenReturn("mongodb://root:root@localhost:27017/?authSource=admin");
-        assertThat(service.resolveConnectionHost()).isEqualTo("localhost:27017");
-
-        when(environment.getProperty("spring.mongodb.uri", "")).thenReturn("");
-        assertThat(service.resolveConnectionHost()).isEqualTo("127.0.0.1:9812");
-
-        when(environment.getProperty("app.mongo-public-host", ""))
-                .thenReturn("mongo.pkmprojects.online:9812");
-        assertThat(service.resolveConnectionHost()).isEqualTo("mongo.pkmprojects.online:9812");
+        when(environment.getProperty("app.restheart-url", "")).thenReturn("");
+        assertThat(service.resolveRestheartUrl()).isEqualTo("http://localhost:9814");
     }
 
     @Test

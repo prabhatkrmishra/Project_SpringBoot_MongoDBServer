@@ -18,12 +18,34 @@
 
                 <div class="card credential-card shadow-sm mb-4" th:if="${newCredentials}">
                     <div class="card-body">
-                        <h3 class="h6 mb-1"><i class="bi bi-key-fill"></i> Connection string — shown only once</h3>
-                        <p class="text-body-secondary">Store it somewhere safe. The password cannot be recovered later
-                            (only reset). Connect to this database with:</p>
+                        <h3 class="h6 mb-1"><i class="bi bi-key-fill"></i> RESTHeart connection — shown only once</h3>
+                        <p class="text-body-secondary">Store these values somewhere safe. The password cannot be recovered later
+                            (only reset). Add them to your app's <code>.env</code> file:</p>
+
+                        <!-- Labeled fields -->
+                        <dl class="info-grid mb-3">
+                            <div>
+                                <dt>API URL</dt>
+                                <dd><code th:text="${newCredentials.restheartUrl}">http://localhost:9814</code></dd>
+                            </div>
+                            <div>
+                                <dt>Database</dt>
+                                <dd><code th:text="${newCredentials.dbName}">dbname</code></dd>
+                            </div>
+                            <div>
+                                <dt>API User</dt>
+                                <dd><code th:text="${newCredentials.userName}">user</code></dd>
+                            </div>
+                        </dl>
+
+                        <!-- Copyable env vars block -->
+                        <h4 class="h6 mb-1"><i class="bi bi-terminal"></i> Environment variables</h4>
                         <div class="credential-row">
-                            <pre class="credential-pre"><code th:text="${newCredentials.connectionString}">mongodb://user:pass@host/db</code></pre>
-                            <button class="btn btn-sm btn-outline-light copy-btn" th:attr="data-copy=${newCredentials.connectionString}"
+                            <pre class="credential-pre"><code th:text="${newCredentials.restheartEnvVars}">RESTHEART_URL=...
+DB_USER=...
+DB_PASS=...
+MONGODB_DB=...</code></pre>
+                            <button class="btn btn-sm btn-outline-light copy-btn" th:attr="data-copy=${newCredentials.restheartEnvVars}"
                                     type="button">
                                 <i class="bi bi-clipboard"></i> Copy
                             </button>

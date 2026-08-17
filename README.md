@@ -26,8 +26,9 @@ Spring MVC web UI.
 - **Export** — download any collection page as a JSON file.
 - **Audit trail** — every provision/reset/delete is recorded; view the last 10 on
   the dashboard or the full paginated history at `/activity`.
-- **RESTHeart** — optional HTTP/GraphQL/WebSocket API layer for MongoDB.
-  See [RESTHEART.md](RESTHEART.md) for setup instructions.
+- **RESTHeart** — HTTP/GraphQL/WebSocket API layer for MongoDB, bundled in the
+  Docker Compose stack on port 9814. See [RESTHEART.md](RESTHEART.md) for
+  details and client usage.
 - **MongoDB + mongo-express** — all run via Docker Compose.
 - **mongo-express web UI** — [mongo-express](https://github.com/mongo-express/mongo-express)
   is bundled in the stack, but only reachable through the app at `/mongo-express`
@@ -61,6 +62,7 @@ Spring MVC web UI.
    ```
 
    - App: http://localhost:9811
+   - RESTHeart API: http://localhost:9814
    - mongo-express: no direct URL — sign in to the app and open **Mongo Express**
      from the sidebar (`/mongo-express`); its basic auth uses `MONGO_EXPRESS_*`.
 
@@ -227,9 +229,9 @@ Naming is validated and restricted to URL-safe characters; system databases
 ## Project layout
 
 ```
-compose.yaml                      # MongoDB + mongo-express (mongo-express loopback-bound)
-restheart/                        # RESTHeart Docker setup (HTTP API for MongoDB)
-RESTHEART.md                      # RESTHeart setup & usage guide
+compose.yaml                      # MongoDB + mongo-express + RESTHeart (x86)
+compose.arm.yaml                  # Same stack for Raspberry Pi (ARM)
+RESTHEART.md                      # RESTHeart API usage & client guide
 .env / .env.example               # credentials (gitignored)
 src/main/java/com/pkmprojects/mongodbserver
   config/                         # Security, rate limiting, mongo-express proxy, properties, Clock

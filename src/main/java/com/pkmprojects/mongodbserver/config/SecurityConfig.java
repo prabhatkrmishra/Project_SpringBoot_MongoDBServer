@@ -36,6 +36,7 @@ public class SecurityConfig {
                         .requestMatchers("/login", "/css/**", "/js/**", "/webjars/**", "/error", "/favicon.ico").permitAll()
                         .requestMatchers("/databases/*/reset", "/databases/*/delete").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/databases", "/databases/**").hasRole("ADMIN")
+                        .requestMatchers("/restheart/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 // The proxied mongo-express UI has its own CSRF protection and form
                 // logins; Spring's token would otherwise reject its POSTs.

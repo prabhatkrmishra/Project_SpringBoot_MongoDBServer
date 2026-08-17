@@ -97,10 +97,11 @@ class MongodbserverApplicationTests {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/databases/testapp"));
 
-        // the detail page shows the show-once connection string
+        // the detail page shows the show-once RESTHeart env vars
         mockMvc.perform(get("/databases/testapp").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("mongodb://testapp_user:firstsecret123@")));
+                .andExpect(content().string(containsString("DB_PASS=firstsecret123")))
+                .andExpect(content().string(containsString("DB_USER=testapp_user")));
 
         // the provisioned user can connect and write to its own database
         try (MongoClient appClient = client("testapp_user", "firstsecret123")) {

@@ -75,8 +75,8 @@ class DashboardControllerTest {
     @WithMockUser(roles = "ADMIN")
     void dashboardListsDatabasesAndActivity() throws Exception {
         when(provisioningService.listDatabases()).thenReturn(List.of(
-                new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 2, NOW, NOW, null, true, null),
-                new DatabaseInfo("external", null, List.of(), 0, null, null, null, false, null)));
+                new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 2, NOW, NOW, null, true, null, "http://localhost:9814"),
+                new DatabaseInfo("external", null, List.of(), 0, null, null, null, false, null, "http://localhost:9814")));
         when(auditLogRepository.findTop10ByOrderByPerformedAtDesc()).thenReturn(List.of(
                 new AuditEvent(AuditEvent.PROVISION, "myapp", "appuser", "admin", NOW)));
 
@@ -93,7 +93,8 @@ class DashboardControllerTest {
     void provisionAsAdminCreatesDatabaseAndRedirects() throws Exception {
         when(provisioningService.provision(any(CreateDatabaseForm.class))).thenReturn(
                 new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 1, NOW, NOW, null, true,
-                        "mongodb://appuser:generatedPass123@localhost:27017/myapp"));
+                        "RESTHEART_URL=http://localhost:9814\nDB_USER=appuser\nDB_PASS=generatedPass123\nMONGODB_DB=myapp",
+                        "http://localhost:9814"));
 
         mockMvc.perform(post("/databases")
                         .with(user("admin").roles("ADMIN"))
