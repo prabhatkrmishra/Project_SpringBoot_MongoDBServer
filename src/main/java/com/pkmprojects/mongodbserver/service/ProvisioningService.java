@@ -148,6 +148,7 @@ public class ProvisioningService {
 
             Instant now = clock.instant();
             ManagedDatabase metadata = new ManagedDatabase(dbName, userName, List.of("readWrite:" + dbName), now, now, null);
+            metadata.setRestheartPassword(password);
             managedDatabaseRepository.save(metadata);
 
             // Create RESTHeart API user + ACL so apps can hit /{db} through RESTHeart
@@ -188,6 +189,7 @@ public class ProvisioningService {
             // Sync the password to the RESTHeart API user
             restheartService.updatePassword(metadata.getUserName(), password);
 
+            metadata.setRestheartPassword(password);
             metadata.setLastPasswordResetAt(clock.instant());
             managedDatabaseRepository.save(metadata);
             audit(AuditEvent.RESET_PASSWORD, dbName, metadata.getUserName(), metadata.getLastPasswordResetAt());
@@ -401,11 +403,12 @@ public class ProvisioningService {
     private DatabaseInfo toInfo(String dbName, ManagedDatabase metadata, Integer collectionsCount,
                                 String restheartEnvVars) {
         if (metadata == null) {
-            return new DatabaseInfo(dbName, null, List.of(), collectionsCount, null, null, null, false, restheartEnvVars, resolveRestheartUrl());
+            return new DatabaseInfo(dbName, null, List.of(), collectionsCount, null, null, null, false, restheartEnvVars, resolveRestheartUrl(), null);
         }
         return new DatabaseInfo(dbName, metadata.getUserName(), metadata.getRoles(),
                 collectionsCount, metadata.getCreatedAt(), metadata.getUpdatedAt(),
-                metadata.getLastPasswordResetAt(), true, restheartEnvVars, resolveRestheartUrl());
+                metadata.getLastPasswordResetAt(), true, restheartEnvVars, resolveRestheartUrl(),
+                metadata.getRestheartPassword());
     }
 
     private boolean isMongoCode(MongoCommandException e, int code) {

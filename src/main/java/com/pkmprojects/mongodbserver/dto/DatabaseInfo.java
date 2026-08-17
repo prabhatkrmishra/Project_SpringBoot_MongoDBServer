@@ -7,12 +7,11 @@ import java.util.List;
 
 /**
  * View model for a database shown on the dashboard / detail page.
- * Never exposes a password; {@code restheartEnvVars} is only populated for the
- * "show once" flash message after creation or password reset and contains
- * the RESTHeart connection env vars the app needs.
+ * Contains the RESTHeart API password (stored in provisioning metadata)
+ * so admins can always recover their credentials.
  *
  * <p>Serializable because the show-once message travels as a flash attribute,
- * and flash attributes are stored in the HTTP session (JDK serialization).
+ * and flash attributes are stored in the HTTP session (JDK serialization).</p>
  */
 public record DatabaseInfo(
         String dbName,
@@ -24,7 +23,8 @@ public record DatabaseInfo(
         Instant lastPasswordResetAt,
         boolean provisioned,
         String restheartEnvVars,
-        String restheartUrl) implements Serializable {
+        String restheartUrl,
+        String restheartPassword) implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -34,6 +34,6 @@ public record DatabaseInfo(
      */
     public DatabaseInfo withRestheartEnvVars(String envVars, String url) {
         return new DatabaseInfo(dbName, userName, roles, collectionsCount, createdAt, updatedAt,
-                lastPasswordResetAt, provisioned, envVars, url);
+                lastPasswordResetAt, provisioned, envVars, url, restheartPassword);
     }
 }

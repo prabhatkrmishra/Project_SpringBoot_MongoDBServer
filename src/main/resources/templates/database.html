@@ -105,6 +105,61 @@ MONGODB_DB=...</code></pre>
                     </div>
                 </section>
 
+                <section class="card shadow-sm mb-4" th:if="${database.provisioned and database.restheartPassword}">
+                    <div class="card-header bg-transparent">
+                        <h3 class="h6 mb-0"><i class="bi bi-key text-primary"></i> API Credentials</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-body-secondary small mb-3">Your API password is persisted here for convenience. Copy these values into your app's environment.</p>
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">RESTHeart URL</label>
+                            <div class="input-group">
+                                <input class="form-control form-control-sm font-monospace bg-body-secondary" readonly
+                                       th:value="${database.restheartUrl}" type="text">
+                                <button class="btn btn-outline-secondary btn-sm" th:data-copy="${database.restheartUrl}" type="button">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Database</label>
+                            <div class="input-group">
+                                <input class="form-control form-control-sm font-monospace bg-body-secondary" readonly
+                                       th:value="${database.dbName}" type="text">
+                                <button class="btn btn-outline-secondary btn-sm" th:data-copy="${database.dbName}" type="button">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-medium">Username</label>
+                            <div class="input-group">
+                                <input class="form-control form-control-sm font-monospace bg-body-secondary" readonly
+                                       th:value="${database.userName}" type="text">
+                                <button class="btn btn-outline-secondary btn-sm" th:data-copy="${database.userName}" type="button">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label fw-medium">Password</label>
+                            <div class="input-group">
+                                <input class="form-control form-control-sm font-monospace bg-body-secondary"
+                                       id="restheartPassword" readonly th:value="${database.restheartPassword}"
+                                       type="password">
+                                <button class="btn btn-outline-secondary" data-toggle-password="restheartPassword"
+                                        type="button">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" th:data-copy="${database.restheartPassword}"
+                                        type="button">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="card shadow-sm mb-4" th:if="${canWrite}">
                     <div class="card-body">
                         <h3 class="h6 mb-2"><i class="bi bi-folder-plus text-primary"></i> Create collection</h3>
