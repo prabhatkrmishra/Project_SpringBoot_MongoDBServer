@@ -144,6 +144,25 @@ public class MongoDatabaseRepository {
     }
 
     /**
+     * Sends a {@code ping} command to the server. Throws {@link MongoException}
+     * when the server is unreachable.
+     */
+    public void ping() {
+        mongoClient.getDatabase("admin").runCommand(new Document("ping", 1));
+    }
+
+    /**
+     * Runs the {@code serverStatus} command. Requires the {@code clusterMonitor}
+     * role (or a root/admin account); a db-scoped user will hit an authorization
+     * exception, which the caller is expected to handle.
+     *
+     * @return the raw {@code serverStatus} document
+     */
+    public Document getServerStatus() {
+        return mongoClient.getDatabase("admin").runCommand(new Document("serverStatus", 1));
+    }
+
+    /**
      * @return number of documents in {@code dbName}.{@code collectionName}
      */
     public long countDocuments(String dbName, String collectionName) {

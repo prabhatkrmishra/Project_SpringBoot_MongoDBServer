@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Health')}"></head>
+<body>
+    <div class="layout">
+        <aside th:replace="~{fragments/nav :: nav('health')}"></aside>
+
+        <div class="main">
+            <main th:replace="~{fragments/nav :: flash}"></main>
+
+            <main class="container-xxl py-4">
+                <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                    <div>
+                        <h1 class="mb-1">MongoDB health</h1>
+                        <p class="mb-0 text-body-secondary">Reachability and metrics for the connected MongoDB
+                            server.</p>
+                    </div>
+                    <a class="btn btn-sm btn-outline-secondary" th:href="@{/}">
+                        <i class="bi bi-arrow-left"></i> Dashboard
+                    </a>
+                </div>
+
+                <section class="card shadow-sm mb-4" th:if="${health.reachable}">
+                    <div class="card-header bg-transparent d-flex align-items-center gap-2">
+                        <i class="bi bi-broadcast text-success"></i>
+                        <span class="fw-medium">Connected</span>
+                        <span class="badge badge-soft-success ms-auto">
+                            <i class="bi bi-check-circle me-1"></i>Reachable
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Version</div>
+                                    <div class="health-metric-value" th:text="${health.version} ?: '—'">-</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Uptime</div>
+                                    <div class="health-metric-value" th:text="${health.uptime()} ?: '—'">-</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Connections</div>
+                                    <div class="health-metric-value" th:text="${health.connectionCount} ?: '—'">-</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Total storage</div>
+                                    <div class="health-metric-value" th:text="${health.storageLabel()} ?: '—'">-</div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-body-secondary small mb-0 mt-3"
+                           th:if="${health.version == null or health.uptime() == null or health.connectionCount == null}">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Some metrics are unavailable because the connected MongoDB user lacks
+                            <code>serverStatus</code> privileges.
+                        </p>
+                    </div>
+                </section>
+
+                <section class="card shadow-sm mb-4" th:if="${!health.reachable}">
+                    <div class="card-body text-center py-5">
+                        <div class="empty-state-icon text-danger mb-3">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                        <h2 class="h5 text-danger mb-2">MongoDB unreachable</h2>
+                        <p class="text-body-secondary mb-0">The server could not be reached. Check that MongoDB is
+                            running and the configured credentials are valid.</p>
+                    </div>
+                </section>
+
+                <section class="card shadow-sm mb-4" th:if="${health.reachable}">
+                    <div class="card-header bg-transparent d-flex align-items-center gap-2">
+                        <i class="bi bi-database text-primary"></i>
+                        <span class="fw-medium">Databases</span>
+                        <span class="badge badge-soft-info ms-auto"
+                              th:text="${health.databaseCount} + ' on server'">0 on server</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-body-secondary mb-0">
+                            <i class="bi bi-arrow-right me-1"></i>
+                            Manage databases and their users from the
+                            <a class="link-primary" th:href="@{/}">dashboard</a>.
+                        </p>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

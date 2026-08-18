@@ -32,6 +32,10 @@
                 <i class="bi bi-clock-history"></i> Activity
                 <span class="sidebar-badge" th:if="${activityCount > 0}" th:text="${activityCount}">3</span>
             </a>
+            <a class="sidebar-link" th:classappend="${page == 'health'} ? 'active'"
+               th:href="@{/health}">
+                <i class="bi bi-heart-pulse"></i> Health
+            </a>
             <a class="sidebar-link" th:href="@{/mongo-express}">
                 <i class="bi bi-box-arrow-up-right"></i> Mongo Express
             </a>

@@ -781,7 +781,34 @@ a {
 }
 
 /* --------------------------------------------------------------------------
-   16. Documents (collection explorer)
+    15b. Health dashboard metrics
+   -------------------------------------------------------------------------- */
+.health-metric {
+    background: #f8fafc;
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 1rem 1.15rem;
+    height: 100%;
+}
+
+.health-metric-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--bs-secondary-color);
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.health-metric-value {
+    font-weight: 700;
+    color: var(--heading-color);
+    font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+    16. Documents (collection explorer)
    -------------------------------------------------------------------------- */
 .documents {
     display: grid;

@@ -202,4 +202,17 @@ class MongoDatabaseRepositoryTest {
 
         assertThat(users).noneMatch(doc -> doc.getString("user").startsWith("__"));
     }
+
+    @Test
+    void pingSucceedsAgainstRunningServer() {
+        repository.ping();
+    }
+
+    @Test
+    void getServerStatusReturnsVersion() {
+        Document status = repository.getServerStatus();
+
+        assertThat(status.getString("version")).isNotBlank();
+        assertThat(status.get("uptime")).isInstanceOf(Number.class);
+    }
 }
