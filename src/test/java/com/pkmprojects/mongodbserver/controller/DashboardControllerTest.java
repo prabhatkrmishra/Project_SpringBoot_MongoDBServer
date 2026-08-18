@@ -81,6 +81,7 @@ class DashboardControllerTest {
                 .andExpect(model().attributeExists("databases", "recentActivity"))
                 .andExpect(content().string(containsString("myapp")))
                 .andExpect(content().string(containsString("external")))
+                .andExpect(content().string(containsString("Storage Size")))
                 .andExpect(content().string(containsString("Recent activity")));
     }
 

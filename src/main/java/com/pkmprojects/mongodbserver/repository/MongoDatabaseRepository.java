@@ -35,14 +35,15 @@ public class MongoDatabaseRepository {
     }
 
     /**
-     * @return map of database name to storage size in bytes (from {@code storageSize} field)
+     * @return map of database name to total disk size in bytes (from {@code sizeOnDisk} field
+     *         of the {@code listDatabases} command, which includes data files, indexes, and padding)
      */
     public Map<String, Long> getDatabaseSizes() {
         Map<String, Long> sizes = new LinkedHashMap<>();
         mongoClient.listDatabases().forEach(doc -> {
             String name = doc.getString("name");
             if (name != null) {
-                sizes.put(name, doc.get("storageSize", 0L));
+                sizes.put(name, doc.get("sizeOnDisk", 0L));
             }
         });
         return sizes;

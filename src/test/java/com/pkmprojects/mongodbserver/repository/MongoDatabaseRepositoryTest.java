@@ -8,6 +8,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
@@ -142,5 +144,41 @@ class MongoDatabaseRepositoryTest {
         assertThat(repository.countDocuments("testapp", "items")).isEqualTo(120);
         assertThat(repository.findDocuments("testapp", "items", 0, 50)).hasSize(50);
         assertThat(repository.findDocuments("testapp", "items", 100, 50)).hasSize(20);
+    }
+
+    @Test
+    void getDatabaseSizesReturnsNonNegativeForEmptyDatabase() {
+        repository.createDatabase("testapp");
+
+        Map<String, Long> sizes = repository.getDatabaseSizes();
+
+        assertThat(sizes).containsKey("testapp");
+        assertThat(sizes.get("testapp")).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    void getDatabaseSizesIncreasesAfterInsertingDocuments() {
+        repository.createDatabase("testapp");
+        repository.createCollection("testapp", "items");
+        long sizeBefore = repository.getDatabaseSizes().getOrDefault("testapp", 0L);
+
+        for (int i = 0; i < 1000; i++) {
+            rootClient.getDatabase("testapp").getCollection("items")
+                    .insertOne(new Document("name", "item-" + i).append("value", "x".repeat(200)));
+        }
+        long sizeAfter = repository.getDatabaseSizes().getOrDefault("testapp", 0L);
+
+        assertThat(sizeAfter).isGreaterThan(sizeBefore);
+    }
+
+    @Test
+    void getDatabaseSizesIncludesAllCreatedDatabases() {
+        repository.createDatabase("alpha");
+        repository.createDatabase("beta");
+
+        Map<String, Long> sizes = repository.getDatabaseSizes();
+
+        assertThat(sizes).containsKey("alpha");
+        assertThat(sizes).containsKey("beta");
     }
 }

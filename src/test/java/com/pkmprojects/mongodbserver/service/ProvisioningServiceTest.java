@@ -34,6 +34,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -328,6 +329,8 @@ class ProvisioningServiceTest {
                 .thenReturn(List.of("admin", "config", "local", "mongodb_admin", "myapp", "externaldb"));
         when(mongoDatabaseRepository.listCollectionNames("myapp")).thenReturn(List.of("_bootstrap"));
         when(mongoDatabaseRepository.listCollectionNames("externaldb")).thenReturn(List.of());
+        when(mongoDatabaseRepository.getDatabaseSizes())
+                .thenReturn(Map.of("myapp", 1024L, "externaldb", 2048L));
         ManagedDatabase metadata = new ManagedDatabase("myapp", "appuser", List.of("readWrite:myapp"),
                 NOW, NOW, null);
         when(managedDatabaseRepository.findAll()).thenReturn(List.of(metadata));
@@ -339,7 +342,9 @@ class ProvisioningServiceTest {
         assertThat(myapp.provisioned()).isTrue();
         assertThat(myapp.userName()).isEqualTo("appuser");
         assertThat(myapp.collectionsCount()).isEqualTo(1);
+        assertThat(myapp.sizeBytes()).isEqualTo(1024L);
         assertThat(databases.get(0).provisioned()).isFalse();
+        assertThat(databases.get(0).sizeBytes()).isEqualTo(2048L);
     }
 
     @Test
@@ -351,6 +356,32 @@ class ProvisioningServiceTest {
     }
 
     @Test
+    void listDatabasesPropagatesSizeOnDisk() {
+        when(mongoDatabaseRepository.listDatabaseNames())
+                .thenReturn(List.of("myapp"));
+        when(mongoDatabaseRepository.listCollectionNames("myapp")).thenReturn(List.of("_bootstrap"));
+        when(mongoDatabaseRepository.getDatabaseSizes()).thenReturn(Map.of("myapp", 524288L));
+        when(managedDatabaseRepository.findAll()).thenReturn(List.of());
+
+        List<DatabaseInfo> databases = service.listDatabases();
+
+        assertThat(databases).hasSize(1);
+        assertThat(databases.get(0).sizeBytes()).isEqualTo(524288L);
+    }
+
+    @Test
+    void getDatabasePropagatesSizeOnDisk() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
+        when(managedDatabaseRepository.findByDbName("myapp")).thenReturn(Optional.empty());
+        when(mongoDatabaseRepository.listCollectionNames("myapp")).thenReturn(List.of());
+        when(mongoDatabaseRepository.getDatabaseSizes()).thenReturn(Map.of("myapp", 1048576L));
+
+        DatabaseInfo info = service.getDatabase("myapp");
+
+        assertThat(info.sizeBytes()).isEqualTo(1048576L);
+    }
+
+    @Test
     void getDatabaseReconstructsConnectionStringFromStoredPassword() {
         when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
         ManagedDatabase metadata = new ManagedDatabase("myapp", "appuser", List.of("readWrite:myapp"),
@@ -358,11 +389,13 @@ class ProvisioningServiceTest {
         metadata.setStoredPassword("mypassword");
         when(managedDatabaseRepository.findByDbName("myapp")).thenReturn(Optional.of(metadata));
         when(mongoDatabaseRepository.listCollectionNames("myapp")).thenReturn(List.of("items"));
+        when(mongoDatabaseRepository.getDatabaseSizes()).thenReturn(Map.of("myapp", 4096L));
 
         DatabaseInfo info = service.getDatabase("myapp");
 
         assertThat(info.provisioned()).isTrue();
         assertThat(info.userName()).isEqualTo("appuser");
+        assertThat(info.sizeBytes()).isEqualTo(4096L);
         assertThat(info.connectionString()).isEqualTo("mongodb://appuser:mypassword@localhost:27017/myapp?authSource=myapp");
     }
 
@@ -373,10 +406,12 @@ class ProvisioningServiceTest {
                 NOW, NOW, null);
         when(managedDatabaseRepository.findByDbName("myapp")).thenReturn(Optional.of(metadata));
         when(mongoDatabaseRepository.listCollectionNames("myapp")).thenReturn(List.of());
+        when(mongoDatabaseRepository.getDatabaseSizes()).thenReturn(Map.of());
 
         DatabaseInfo info = service.getDatabase("myapp");
 
         assertThat(info.provisioned()).isTrue();
+        assertThat(info.sizeBytes()).isEqualTo(0L);
         assertThat(info.connectionString()).isNull();
     }
 
