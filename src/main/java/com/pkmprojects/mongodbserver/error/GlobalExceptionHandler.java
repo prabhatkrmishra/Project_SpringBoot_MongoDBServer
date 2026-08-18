@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -115,6 +116,18 @@ public class GlobalExceptionHandler {
     public String noResource(NoResourceFoundException ex, Model model) {
         log.debug("No static resource {}", ex.getResourcePath());
         return errorView(model, HttpStatus.NOT_FOUND.value(), "Not Found", "Resource not found");
+    }
+
+    /**
+     * The client closed an async connection (e.g. an SSE stream listener
+     * navigated away or closed the tab). The response is gone, so there is
+     * nothing to send - this is day-one behaviour, not an error. Swallowing it
+     * also prevents the catch-all from trying to render an error view onto the
+     * already-dead socket (which would itself throw and cascade).
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void requestNotUsable(AsyncRequestNotUsableException ex) {
+        log.debug("Async response no longer usable (client disconnected): {}", ex.getMessage());
     }
 
     /**
