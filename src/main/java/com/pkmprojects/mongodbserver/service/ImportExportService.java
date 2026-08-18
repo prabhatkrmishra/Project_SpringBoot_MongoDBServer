@@ -180,12 +180,11 @@ public class ImportExportService {
                 mongoDatabaseRepository.insertDocuments(dbName, collectionName,
                         documents.subList(i, Math.min(i + INSERT_BATCH_SIZE, documents.size())));
             }
+            audit(AuditEvent.IMPORT, dbName, collectionName, clock.instant());
         } catch (MongoException e) {
             log.error("Failed to import into {}.{}", dbName, collectionName, e);
             throw new ProvisioningException("Could not import into collection '" + collectionName + "'", e);
         }
-
-        audit(AuditEvent.IMPORT, dbName, collectionName, clock.instant());
         log.info("Imported {} document(s) into {}.{}", documents.size(), dbName, collectionName);
         return new ImportResult(dbName, collectionName, documents.size());
     }
@@ -308,7 +307,15 @@ public class ImportExportService {
                 field.setLength(0);
                 rows.add(row);
                 row = new ArrayList<>();
-            } else if (c != '\r') {
+            } else if (c == '\r') {
+                // CRLF is terminated by the '\n' branch; a lone CR also ends a row.
+                if (i + 1 >= text.length() || text.charAt(i + 1) != '\n') {
+                    row.add(field.toString());
+                    field.setLength(0);
+                    rows.add(row);
+                    row = new ArrayList<>();
+                }
+            } else {
                 field.append(c);
             }
         }
@@ -349,10 +356,27 @@ public class ImportExportService {
     }
 
     private static String csvField(String value) {
+        if (startsWithFormulaChar(value)) {
+            value = "'" + value;
+        }
         if (value.indexOf(',') >= 0 || value.indexOf('"') >= 0 || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
         return value;
+    }
+
+    /**
+     * Cells starting with these characters can be interpreted as spreadsheet
+     * formulas (CWE-1236). A leading {@code '} neutralizes them. Negative
+     * numbers ({@code -}) are left untouched because they are far more common
+     * than '-' formulas.
+     */
+    private static boolean startsWithFormulaChar(String value) {
+        if (value.isEmpty()) {
+            return false;
+        }
+        char first = value.charAt(0);
+        return first == '=' || first == '+' || first == '@' || first == '\t' || first == '\r';
     }
 
     private void requireDatabase(String dbName) {

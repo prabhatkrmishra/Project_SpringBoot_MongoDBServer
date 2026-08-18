@@ -385,6 +385,57 @@ class ImportExportServiceTest {
     }
 
     @Test
+    void csvExportNeutralizesFormulaInjection() throws Exception {
+        stubExistingCollection();
+        feed(List.of(new Document("name", "=SUM(A1:A2)")
+                .append("qty", "+1")
+                .append("mail", "@cmd")
+                .append("tab", "\t=x")
+                .append("neg", -5)));
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        service.writeAllDocumentsAsCsv("myapp", "users", out);
+
+        String csv = out.toString(StandardCharsets.UTF_8);
+        assertThat(csv).contains("'=SUM(A1:A2)");
+        assertThat(csv).contains("'+1");
+        assertThat(csv).contains("'@cmd");
+        assertThat(csv).contains("'\t=x");
+        assertThat(csv).contains(",-5\r\n");
+    }
+
+    @Test
+    void csvImportHandlesLoneCarriageReturns() {
+        stubExistingCollection();
+
+        ImportExportService.ImportResult result = service.importDocuments("myapp", "users",
+                "a,b\r1,2\r3,4".getBytes(StandardCharsets.UTF_8));
+
+        assertThat(result.documentsImported()).isEqualTo(2);
+        ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
+        verify(mongoDatabaseRepository).insertDocuments(eq("myapp"), eq("users"), captor.capture());
+        assertThat(captor.getValue().get(0).getString("a")).isEqualTo("1");
+        assertThat(captor.getValue().get(0).getString("b")).isEqualTo("2");
+        assertThat(captor.getValue().get(1).getString("a")).isEqualTo("3");
+        assertThat(captor.getValue().get(1).getString("b")).isEqualTo("4");
+    }
+
+    @Test
+    void csvImportHandlesCrlfLineEndings() {
+        stubExistingCollection();
+
+        ImportExportService.ImportResult result = service.importDocuments("myapp", "users",
+                "a,b\r\n1,2\r\n3,4\r\n".getBytes(StandardCharsets.UTF_8));
+
+        assertThat(result.documentsImported()).isEqualTo(2);
+        ArgumentCaptor<List<Document>> captor = ArgumentCaptor.forClass(List.class);
+        verify(mongoDatabaseRepository).insertDocuments(eq("myapp"), eq("users"), captor.capture());
+        assertThat(captor.getValue()).hasSize(2);
+        assertThat(captor.getValue().get(0).getString("a")).isEqualTo("1");
+        assertThat(captor.getValue().get(1).getString("a")).isEqualTo("3");
+    }
+
+    @Test
     void csvImportRejectsDottedColumn() {
         stubExistingCollection();
 
