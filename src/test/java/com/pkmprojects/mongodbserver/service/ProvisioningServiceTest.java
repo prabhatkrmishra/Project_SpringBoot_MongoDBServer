@@ -4,12 +4,14 @@ import com.mongodb.MongoCommandException;
 import com.mongodb.ServerAddress;
 import com.pkmprojects.mongodbserver.dto.CreateDatabaseForm;
 import com.pkmprojects.mongodbserver.dto.DatabaseInfo;
+import com.pkmprojects.mongodbserver.dto.DatabaseUser;
 import com.pkmprojects.mongodbserver.dto.ResetPasswordForm;
 import com.pkmprojects.mongodbserver.error.DatabaseAlreadyExistsException;
 import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
 import com.pkmprojects.mongodbserver.error.NameNotAllowedException;
 import com.pkmprojects.mongodbserver.error.ProvisioningException;
 import com.pkmprojects.mongodbserver.model.AuditEvent;
+import org.bson.Document;
 import com.pkmprojects.mongodbserver.model.ManagedDatabase;
 import com.pkmprojects.mongodbserver.repository.AuditLogRepository;
 import com.pkmprojects.mongodbserver.repository.ManagedDatabaseRepository;
@@ -439,6 +441,62 @@ class ProvisioningServiceTest {
         assertThatThrownBy(() -> service.provision(new CreateDatabaseForm("admin", "appuser", "")))
                 .isInstanceOf(NameNotAllowedException.class);
         verify(mongoDatabaseRepository, never()).createUser(any(), any(), any());
+    }
+
+    @Test
+    void listUsersReturnsUsersFromRepository() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
+        Document userDoc = new Document("user", "appuser")
+                .append("roles", List.of(new Document("role", "readWrite").append("db", "myapp")))
+                .append("db", "myapp");
+        when(mongoDatabaseRepository.getUsers("myapp")).thenReturn(List.of(userDoc));
+
+        List<DatabaseUser> users = service.listUsers("myapp");
+
+        assertThat(users).hasSize(1);
+        assertThat(users.get(0).userName()).isEqualTo("appuser");
+        assertThat(users.get(0).roles()).containsExactly("readWrite:myapp");
+        assertThat(users.get(0).authSource()).isEqualTo("myapp");
+    }
+
+    @Test
+    void listUsersThrowsWhenDatabaseMissing() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.listUsers("myapp"))
+                .isInstanceOf(DatabaseNotFoundException.class);
+    }
+
+    @Test
+    void revokeUserDropsUser() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
+        Document user1 = new Document("user", "appuser").append("roles", List.of()).append("db", "myapp");
+        Document user2 = new Document("user", "otheruser").append("roles", List.of()).append("db", "myapp");
+        when(mongoDatabaseRepository.getUsers("myapp")).thenReturn(List.of(user1, user2));
+
+        service.revokeUser("myapp", "appuser");
+
+        verify(mongoDatabaseRepository).dropUser("myapp", "appuser");
+    }
+
+    @Test
+    void revokeUserRejectsDroppingLastUser() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
+        Document user1 = new Document("user", "appuser").append("roles", List.of()).append("db", "myapp");
+        when(mongoDatabaseRepository.getUsers("myapp")).thenReturn(List.of(user1));
+
+        assertThatThrownBy(() -> service.revokeUser("myapp", "appuser"))
+                .isInstanceOf(DatabaseAlreadyExistsException.class)
+                .hasMessageContaining("last user");
+        verify(mongoDatabaseRepository, never()).dropUser(any(), any());
+    }
+
+    @Test
+    void revokeUserThrowsWhenDatabaseMissing() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.revokeUser("myapp", "appuser"))
+                .isInstanceOf(DatabaseNotFoundException.class);
     }
 
     private MongoCommandException mongoError(int code, String message) {

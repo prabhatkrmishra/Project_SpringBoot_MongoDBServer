@@ -5,6 +5,7 @@ import com.pkmprojects.mongodbserver.config.SecurityConfig;
 import com.pkmprojects.mongodbserver.dto.CollectionInfo;
 import com.pkmprojects.mongodbserver.dto.CreateDatabaseForm;
 import com.pkmprojects.mongodbserver.dto.DatabaseInfo;
+import com.pkmprojects.mongodbserver.dto.DatabaseUser;
 import com.pkmprojects.mongodbserver.dto.ResetPasswordForm;
 import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
 import com.pkmprojects.mongodbserver.service.ExplorationService;
@@ -211,6 +212,73 @@ class DatabaseControllerTest {
                 .andExpect(status().isForbidden());
 
         verify(provisioningService, never()).delete(any());
+    }
+
+    // ── User management ─────────────────────────────────────────────────
+
+    @Test
+    void usersPageRequiresAdminRole() throws Exception {
+        mockMvc.perform(get("/databases/myapp/users").with(user("bob").roles("USER")))
+                .andExpect(status().isForbidden());
+
+        when(provisioningService.getDatabase("myapp")).thenReturn(databaseInfo());
+        when(provisioningService.listUsers("myapp")).thenReturn(List.of());
+
+        mockMvc.perform(get("/databases/myapp/users").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("users"));
+    }
+
+    @Test
+    void usersPageListsUsers() throws Exception {
+        when(provisioningService.getDatabase("myapp")).thenReturn(databaseInfo());
+        when(provisioningService.listUsers("myapp")).thenReturn(List.of(
+                new DatabaseUser("appuser", List.of("readWrite:myapp"), "myapp")));
+
+        mockMvc.perform(get("/databases/myapp/users").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("users"))
+                .andExpect(model().attributeExists("users"))
+                .andExpect(content().string(containsString("appuser")));
+    }
+
+    @Test
+    void usersPageForMissingDatabaseReturns404() throws Exception {
+        when(provisioningService.getDatabase("missing"))
+                .thenThrow(new DatabaseNotFoundException("Database 'missing' does not exist"));
+
+        mockMvc.perform(get("/databases/missing/users").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void revokeUserAsAdminRedirectsToUsersPage() throws Exception {
+        mockMvc.perform(post("/databases/myapp/users/otheruser/delete")
+                        .with(user("admin").roles("ADMIN"))
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/databases/myapp/users"));
+
+        verify(provisioningService).revokeUser("myapp", "otheruser");
+    }
+
+    @Test
+    void revokeUserAsUserIsForbidden() throws Exception {
+        mockMvc.perform(post("/databases/myapp/users/otheruser/delete")
+                        .with(user("bob").roles("USER"))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+
+        verify(provisioningService, never()).revokeUser(any(), any());
+    }
+
+    @Test
+    void revokeUserWithoutCsrfIsRejected() throws Exception {
+        mockMvc.perform(post("/databases/myapp/users/otheruser/delete")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden());
+
+        verify(provisioningService, never()).revokeUser(any(), any());
     }
 
     @TestConfiguration(proxyBeanMethods = false)

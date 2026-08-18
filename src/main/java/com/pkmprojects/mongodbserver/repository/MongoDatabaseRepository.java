@@ -168,4 +168,24 @@ public class MongoDatabaseRepository {
                 .forEach(documents::add);
         return documents;
     }
+
+    /**
+     * Lists all users defined in {@code dbName} (via the {@code usersInfo} command).
+     * System users ({@code __system}, {@code __oplog}) are excluded.
+     *
+     * @return list of user documents, each containing at least {@code user} and {@code roles}
+     */
+    public List<Document> getUsers(String dbName) {
+        Document result = mongoClient.getDatabase(dbName).runCommand(new Document("usersInfo", 1));
+        List<Document> users = result.getList("users", Document.class);
+        if (users == null) {
+            return List.of();
+        }
+        return users.stream()
+                .filter(doc -> {
+                    String name = doc.getString("user");
+                    return name != null && !name.startsWith("__");
+                })
+                .toList();
+    }
 }

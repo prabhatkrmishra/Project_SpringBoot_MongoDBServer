@@ -124,4 +124,28 @@ public class DatabaseController {
         redirectAttributes.addFlashAttribute("flashSuccess", "Database '" + dbName + "' deleted");
         return "redirect:/";
     }
+
+    /**
+     * Renders the user management page for a database (admin only).
+     */
+    @GetMapping("/databases/{dbName}/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String users(@PathVariable String dbName, Model model) {
+        model.addAttribute("database", provisioningService.getDatabase(dbName));
+        model.addAttribute("users", provisioningService.listUsers(dbName));
+        return "users";
+    }
+
+    /**
+     * Revokes a user's access to a database (admin only). Refuses to drop the
+     * last remaining user.
+     */
+    @PostMapping("/databases/{dbName}/users/{userName}/delete")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String revokeUser(@PathVariable String dbName, @PathVariable String userName,
+                             RedirectAttributes redirectAttributes) {
+        provisioningService.revokeUser(dbName, userName);
+        redirectAttributes.addFlashAttribute("flashSuccess", "User '" + userName + "' revoked from database '" + dbName + "'");
+        return "redirect:/databases/" + dbName + "/users";
+    }
 }

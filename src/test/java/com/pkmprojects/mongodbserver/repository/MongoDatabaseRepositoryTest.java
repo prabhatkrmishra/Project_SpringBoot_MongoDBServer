@@ -181,4 +181,25 @@ class MongoDatabaseRepositoryTest {
         assertThat(sizes).containsKey("alpha");
         assertThat(sizes).containsKey("beta");
     }
+
+    @Test
+    void getUsersReturnsCreatedUser() {
+        repository.createDatabase("testapp");
+        repository.createUser("testapp", "testapp_user", "secret123");
+
+        var users = repository.getUsers("testapp");
+
+        assertThat(users).hasSize(1);
+        assertThat(users.get(0).getString("user")).isEqualTo("testapp_user");
+    }
+
+    @Test
+    void getUsersExcludesSystemUsers() {
+        repository.createDatabase("testapp");
+        repository.createUser("testapp", "testapp_user", "secret123");
+
+        var users = repository.getUsers("testapp");
+
+        assertThat(users).noneMatch(doc -> doc.getString("user").startsWith("__"));
+    }
 }

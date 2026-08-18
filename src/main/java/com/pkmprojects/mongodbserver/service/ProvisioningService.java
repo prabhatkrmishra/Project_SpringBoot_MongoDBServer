@@ -2,8 +2,10 @@ package com.pkmprojects.mongodbserver.service;
 
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoException;
+import org.bson.Document;
 import com.pkmprojects.mongodbserver.dto.CreateDatabaseForm;
 import com.pkmprojects.mongodbserver.dto.DatabaseInfo;
+import com.pkmprojects.mongodbserver.dto.DatabaseUser;
 import com.pkmprojects.mongodbserver.dto.ResetPasswordForm;
 import com.pkmprojects.mongodbserver.error.DatabaseAlreadyExistsException;
 import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
@@ -282,6 +284,53 @@ public class ProvisioningService {
                 log.error("Failed to drop collection {}.{}", dbName, collectionName, e);
                 throw new ProvisioningException("Could not drop collection '" + collectionName + "'", e);
             }
+        });
+    }
+
+    /**
+     * Lists all users defined in {@code dbName} (excluding system users).
+     *
+     * @throws DatabaseNotFoundException when the database does not exist
+     */
+    public List<DatabaseUser> listUsers(String dbName) {
+        nameValidator.validateDatabaseName(dbName);
+        requireDatabase(dbName);
+        return mongoDatabaseRepository.getUsers(dbName).stream()
+                .map(doc -> new DatabaseUser(
+                        doc.getString("user"),
+                        doc.getList("roles", Document.class).stream()
+                                .map(role -> role.getString("role") + ":" + role.getString("db"))
+                                .toList(),
+                        doc.getString("db")))
+                .toList();
+    }
+
+    /**
+     * Revokes a user's access to a database by dropping the user. Refuses to
+     * drop the last remaining user to prevent locking out the database entirely.
+     *
+     * @throws DatabaseNotFoundException when the database does not exist
+     * @throws DatabaseAlreadyExistsException when trying to drop the last user
+     */
+    public void revokeUser(String dbName, String userName) {
+        nameValidator.validateDatabaseName(dbName);
+        withDatabaseLock(dbName, () -> {
+            requireDatabase(dbName);
+            List<Document> users = mongoDatabaseRepository.getUsers(dbName);
+            if (users.size() <= 1) {
+                throw new DatabaseAlreadyExistsException(
+                        "Cannot revoke the last user of database '" + dbName + "'. Delete the database instead.");
+            }
+            try {
+                mongoDatabaseRepository.dropUser(dbName, userName);
+            } catch (MongoCommandException e) {
+                if (isMongoCode(e, MONGO_CODE_USER_NOT_FOUND)) {
+                    throw new DatabaseNotFoundException("User '" + userName + "' does not exist in database '" + dbName + "'");
+                }
+                log.error("Failed to revoke user '{}' from database '{}'", userName, dbName, e);
+                throw new ProvisioningException("Could not revoke user '" + userName + "'", e);
+            }
+            log.info("Revoked user '{}' from database '{}'", userName, dbName);
         });
     }
 

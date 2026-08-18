@@ -41,6 +41,10 @@
                                   th:if="${!database.provisioned}">external</span>
                         </h2>
                         <div class="d-flex gap-2" th:if="${canWrite}">
+                            <a class="btn btn-sm btn-outline-info"
+                               th:href="@{/databases/{name}/users(name=${database.dbName})}">
+                                <i class="bi bi-people"></i> Users
+                            </a>
                             <a class="btn btn-sm btn-outline-secondary"
                                th:href="@{/databases/{name}/reset(name=${database.dbName})}"
                                th:if="${database.provisioned}">
