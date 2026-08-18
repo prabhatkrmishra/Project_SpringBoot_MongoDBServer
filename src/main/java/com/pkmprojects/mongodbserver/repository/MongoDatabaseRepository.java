@@ -37,16 +37,16 @@ public class MongoDatabaseRepository {
     }
 
     /**
-     * @return map of database name to storage size in bytes (from {@code storageSize} field
-     *         of the {@code listDatabases} command, which reflects actual data bytes rather
-     *         than pre-allocated file space)
+     * @return map of database name to size on disk in bytes (from {@code sizeOnDisk}
+     *         of the {@code listDatabases} command, which reflects actual bytes on
+     *         disk rather than pre-allocated file space)
      */
     public Map<String, Long> getDatabaseSizes() {
         Map<String, Long> sizes = new LinkedHashMap<>();
         mongoClient.listDatabases().forEach(doc -> {
             String name = doc.getString("name");
             if (name != null) {
-                sizes.put(name, ((Number) doc.get("storageSize", 0L)).longValue());
+                sizes.put(name, ((Number) doc.get("sizeOnDisk", 0L)).longValue());
             }
         });
         return sizes;
@@ -54,7 +54,7 @@ public class MongoDatabaseRepository {
 
     /**
      * @return the total data size in bytes for {@code dbName}, as reported by
-     *         {@code dbStats}. Unlike {@code listDatabases.storageSize}, this
+     *         {@code dbStats}. Unlike {@code listDatabases.sizeOnDisk}, this
      *         reflects in-memory data that WiredTiger has not yet flushed to disk.
      */
     public long getDatabaseDataSize(String dbName) {

@@ -160,13 +160,16 @@ class MongoDatabaseRepositoryTest {
     void getDatabaseSizesIncreasesAfterInsertingDocuments() {
         repository.createDatabase("testapp");
         repository.createCollection("testapp", "items");
-        long sizeBefore = repository.getDatabaseDataSize("testapp");
+        long sizeBefore = repository.getDatabaseSizes().getOrDefault("testapp", 0L);
 
         for (int i = 0; i < 1000; i++) {
             rootClient.getDatabase("testapp").getCollection("items")
                     .insertOne(new Document("name", "item-" + i).append("value", "x".repeat(200)));
         }
-        long sizeAfter = repository.getDatabaseDataSize("testapp");
+        // sizeOnDisk reflects WiredTiger checkpoints, not the live data size, so
+        // force a flush before measuring the post-insert on-disk size.
+        rootClient.getDatabase("admin").runCommand(new Document("fsync", 1));
+        long sizeAfter = repository.getDatabaseSizes().getOrDefault("testapp", 0L);
 
         assertThat(sizeAfter).isGreaterThan(sizeBefore);
     }
