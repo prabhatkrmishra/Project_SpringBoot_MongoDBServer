@@ -5,6 +5,7 @@ import com.pkmprojects.mongodbserver.dto.DatabaseInfo;
 import com.pkmprojects.mongodbserver.dto.ResetPasswordForm;
 import com.pkmprojects.mongodbserver.service.ExplorationService;
 import com.pkmprojects.mongodbserver.service.ProvisioningService;
+import com.pkmprojects.mongodbserver.service.StatisticsService;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -24,10 +25,13 @@ public class DatabaseController {
 
     private final ProvisioningService provisioningService;
     private final ExplorationService explorationService;
+    private final StatisticsService statisticsService;
 
-    public DatabaseController(ProvisioningService provisioningService, ExplorationService explorationService) {
+    public DatabaseController(ProvisioningService provisioningService, ExplorationService explorationService,
+                              StatisticsService statisticsService) {
         this.provisioningService = provisioningService;
         this.explorationService = explorationService;
+        this.statisticsService = statisticsService;
     }
 
     /**
@@ -123,6 +127,16 @@ public class DatabaseController {
         provisioningService.delete(dbName);
         redirectAttributes.addFlashAttribute("flashSuccess", "Database '" + dbName + "' deleted");
         return "redirect:/";
+    }
+
+    /**
+     * Renders the statistics dashboard for a database (read-only).
+     */
+    @GetMapping("/databases/{dbName}/stats")
+    public String stats(@PathVariable String dbName, Model model) {
+        model.addAttribute("database", provisioningService.getDatabase(dbName));
+        model.addAttribute("stats", statisticsService.getDatabaseStats(dbName));
+        return "stats";
     }
 
     /**

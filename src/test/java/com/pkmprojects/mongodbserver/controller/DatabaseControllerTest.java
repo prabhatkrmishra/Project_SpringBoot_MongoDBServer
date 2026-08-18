@@ -3,13 +3,16 @@ package com.pkmprojects.mongodbserver.controller;
 import com.pkmprojects.mongodbserver.config.AdminProperties;
 import com.pkmprojects.mongodbserver.config.SecurityConfig;
 import com.pkmprojects.mongodbserver.dto.CollectionInfo;
+import com.pkmprojects.mongodbserver.dto.CollectionStats;
 import com.pkmprojects.mongodbserver.dto.CreateDatabaseForm;
 import com.pkmprojects.mongodbserver.dto.DatabaseInfo;
+import com.pkmprojects.mongodbserver.dto.DatabaseStats;
 import com.pkmprojects.mongodbserver.dto.DatabaseUser;
 import com.pkmprojects.mongodbserver.dto.ResetPasswordForm;
 import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
 import com.pkmprojects.mongodbserver.service.ExplorationService;
 import com.pkmprojects.mongodbserver.service.ProvisioningService;
+import com.pkmprojects.mongodbserver.service.StatisticsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -49,6 +52,9 @@ class DatabaseControllerTest {
 
     @MockitoBean
     private ExplorationService explorationService;
+
+    @MockitoBean
+    private StatisticsService statisticsService;
 
     private DatabaseInfo databaseInfo() {
         return new DatabaseInfo("myapp", "appuser", List.of("readWrite:myapp"), 1, NOW, NOW, null, true, null, 0L);
@@ -279,6 +285,32 @@ class DatabaseControllerTest {
                 .andExpect(status().isForbidden());
 
         verify(provisioningService, never()).revokeUser(any(), any());
+    }
+
+    // ── Statistics dashboard ────────────────────────────────────────────
+
+    @Test
+    void statsPageRendersForAuthenticatedUser() throws Exception {
+        when(provisioningService.getDatabase("myapp")).thenReturn(databaseInfo());
+        when(statisticsService.getDatabaseStats("myapp")).thenReturn(new DatabaseStats(
+                "myapp", 1, 0, 100, 2048, 4096, 20, 2, 512,
+                List.of(new CollectionStats("users", 100, 2048, 4096, 20, 2, 512))));
+
+        mockMvc.perform(get("/databases/myapp/stats").with(user("bob").roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("stats"))
+                .andExpect(model().attributeExists("database", "stats"))
+                .andExpect(content().string(containsString("users")))
+                .andExpect(content().string(containsString("2.0 KB")));
+    }
+
+    @Test
+    void statsPageForMissingDatabaseReturns404() throws Exception {
+        when(provisioningService.getDatabase("missing"))
+                .thenThrow(new DatabaseNotFoundException("Database 'missing' does not exist"));
+
+        mockMvc.perform(get("/databases/missing/stats").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNotFound());
     }
 
     @TestConfiguration(proxyBeanMethods = false)

@@ -163,6 +163,28 @@ public class MongoDatabaseRepository {
     }
 
     /**
+     * Runs the {@code dbStats} command for {@code dbName}. Requires the
+     * {@code dbStats} action on the database (granted by the built-in
+     * {@code read} role and above).
+     *
+     * @return the raw {@code dbStats} document
+     */
+    public Document getDbStats(String dbName) {
+        return mongoClient.getDatabase(dbName).runCommand(new Document("dbStats", 1));
+    }
+
+    /**
+     * Runs the {@code collStats} command for {@code dbName}.{@code collectionName}.
+     * Requires the {@code collStats} action on the collection (granted by the
+     * built-in {@code read} role and above).
+     *
+     * @return the raw {@code collStats} document
+     */
+    public Document getCollectionStats(String dbName, String collectionName) {
+        return mongoClient.getDatabase(dbName).runCommand(new Document("collStats", collectionName));
+    }
+
+    /**
      * @return number of documents in {@code dbName}.{@code collectionName}
      */
     public long countDocuments(String dbName, String collectionName) {

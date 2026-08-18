@@ -40,20 +40,26 @@
                             <span class="badge badge-soft-secondary ms-2"
                                   th:if="${!database.provisioned}">external</span>
                         </h2>
-                        <div class="d-flex gap-2" th:if="${canWrite}">
+                        <div class="d-flex gap-2">
                             <a class="btn btn-sm btn-outline-info"
-                               th:href="@{/databases/{name}/users(name=${database.dbName})}">
-                                <i class="bi bi-people"></i> Users
+                               th:href="@{/databases/{name}/stats(name=${database.dbName})}">
+                                <i class="bi bi-bar-chart-line"></i> Statistics
                             </a>
-                            <a class="btn btn-sm btn-outline-secondary"
-                               th:href="@{/databases/{name}/reset(name=${database.dbName})}"
-                               th:if="${database.provisioned}">
-                                <i class="bi bi-key"></i> Reset password
-                            </a>
-                            <a class="btn btn-sm btn-outline-danger"
-                               th:href="@{/databases/{name}/delete(name=${database.dbName})}">
-                                <i class="bi bi-trash"></i> Delete database
-                            </a>
+                            <div class="d-flex gap-2" th:if="${canWrite}">
+                                <a class="btn btn-sm btn-outline-info"
+                                   th:href="@{/databases/{name}/users(name=${database.dbName})}">
+                                    <i class="bi bi-people"></i> Users
+                                </a>
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   th:href="@{/databases/{name}/reset(name=${database.dbName})}"
+                                   th:if="${database.provisioned}">
+                                    <i class="bi bi-key"></i> Reset password
+                                </a>
+                                <a class="btn btn-sm btn-outline-danger"
+                                   th:href="@{/databases/{name}/delete(name=${database.dbName})}">
+                                    <i class="bi bi-trash"></i> Delete database
+                                </a>
+                            </div>
                         </div>
                     </div>
                     <div class="card-body">

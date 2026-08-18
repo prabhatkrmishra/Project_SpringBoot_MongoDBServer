@@ -215,4 +215,34 @@ class MongoDatabaseRepositoryTest {
         assertThat(status.getString("version")).isNotBlank();
         assertThat(status.get("uptime")).isInstanceOf(Number.class);
     }
+
+    @Test
+    void getDbStatsReturnsAggregateNumbers() {
+        repository.createDatabase("testapp");
+        repository.createCollection("testapp", "items");
+        rootClient.getDatabase("testapp").getCollection("items").insertOne(new Document("name", "widget"));
+
+        Document stats = repository.getDbStats("testapp");
+
+        assertThat(stats.getString("db")).isEqualTo("testapp");
+        assertThat(((Number) stats.get("collections")).intValue()).isGreaterThanOrEqualTo(1);
+        assertThat(((Number) stats.get("objects")).longValue()).isGreaterThanOrEqualTo(1);
+        assertThat(stats.get("dataSize")).isInstanceOf(Number.class);
+        assertThat(stats.get("storageSize")).isInstanceOf(Number.class);
+    }
+
+    @Test
+    void getCollectionStatsReturnsPerCollectionNumbers() {
+        repository.createDatabase("testapp");
+        repository.createCollection("testapp", "items");
+        rootClient.getDatabase("testapp").getCollection("items").insertOne(new Document("name", "widget"));
+
+        Document stats = repository.getCollectionStats("testapp", "items");
+
+        assertThat(stats.getString("ns")).isEqualTo("testapp.items");
+        assertThat(((Number) stats.get("count")).longValue()).isEqualTo(1);
+        assertThat(stats.get("size")).isInstanceOf(Number.class);
+        assertThat(stats.get("storageSize")).isInstanceOf(Number.class);
+        assertThat(((Number) stats.get("nindexes")).intValue()).isGreaterThanOrEqualTo(1);
+    }
 }
