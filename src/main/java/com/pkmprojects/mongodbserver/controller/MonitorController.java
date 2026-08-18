@@ -71,6 +71,12 @@ public class MonitorController {
             // scheduled task so it does not keep ticking into the void.
             log.debug("Monitor SSE client disconnected", e);
             throw new SseStreamClosed(e);
+        } catch (RuntimeException e) {
+            // A snapshot failed. Close the stream so the browser reconnects
+            // cleanly instead of sitting on a silent, stalled stream.
+            log.warn("Monitor snapshot tick failed", e);
+            emitter.completeWithError(e);
+            throw e;
         }
     }
 
