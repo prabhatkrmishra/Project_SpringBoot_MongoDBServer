@@ -1,8 +1,6 @@
 package com.pkmprojects.mongodbserver.controller;
 
 import com.pkmprojects.mongodbserver.model.AuditEvent;
-import com.pkmprojects.mongodbserver.repository.AuditLogRepository;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -15,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Full, paginated view of the admin activity audit trail with optional
@@ -28,11 +27,9 @@ public class ActivityController {
      */
     static final int PAGE_SIZE = 50;
 
-    private final AuditLogRepository auditLogRepository;
     private final MongoTemplate mongoTemplate;
 
-    public ActivityController(AuditLogRepository auditLogRepository, MongoTemplate mongoTemplate) {
-        this.auditLogRepository = auditLogRepository;
+    public ActivityController(MongoTemplate mongoTemplate) {
         this.mongoTemplate = mongoTemplate;
     }
 
@@ -70,23 +67,36 @@ public class ActivityController {
         return "activity";
     }
 
+    /**
+     * Builds a MongoDB query from optional filter parameters. Text fields use
+     * case-insensitive "contains" matching with regex-escaped input.
+     */
     private Query buildFilterQuery(String eventType, String dbName, String userName, String performedBy) {
         List<Criteria> criteria = new ArrayList<>();
         if (eventType != null && !eventType.isBlank()) {
             criteria.add(Criteria.where("eventType").is(eventType.trim()));
         }
         if (dbName != null && !dbName.isBlank()) {
-            criteria.add(Criteria.where("dbName").regex(java.util.regex.Pattern.quote(dbName.trim()), "i"));
+            criteria.add(Criteria.where("dbName").regex(containsPattern(dbName.trim()), "i"));
         }
         if (userName != null && !userName.isBlank()) {
-            criteria.add(Criteria.where("userName").regex(java.util.regex.Pattern.quote(userName.trim()), "i"));
+            criteria.add(Criteria.where("userName").regex(containsPattern(userName.trim()), "i"));
         }
         if (performedBy != null && !performedBy.isBlank()) {
-            criteria.add(Criteria.where("performedBy").regex(java.util.regex.Pattern.quote(performedBy.trim()), "i"));
+            criteria.add(Criteria.where("performedBy").regex(containsPattern(performedBy.trim()), "i"));
         }
         if (criteria.isEmpty()) {
             return new Query();
         }
         return new Query(Criteria.where("id").exists(true).andOperator(criteria.toArray(new Criteria[0])));
+    }
+
+    /**
+     * Produces a regex pattern that matches any string containing {@code input}
+     * (case-insensitive). Special regex characters in {@code input} are escaped
+     * via {@link Pattern#quote} so user-supplied dots, stars etc. are literal.
+     */
+    private static String containsPattern(String input) {
+        return ".*" + Pattern.quote(input) + ".*";
     }
 }

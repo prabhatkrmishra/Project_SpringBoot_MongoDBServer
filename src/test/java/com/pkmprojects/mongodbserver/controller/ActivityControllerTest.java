@@ -3,7 +3,6 @@ package com.pkmprojects.mongodbserver.controller;
 import com.pkmprojects.mongodbserver.config.AdminProperties;
 import com.pkmprojects.mongodbserver.config.SecurityConfig;
 import com.pkmprojects.mongodbserver.model.AuditEvent;
-import com.pkmprojects.mongodbserver.repository.AuditLogRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -37,9 +36,6 @@ class ActivityControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @MockitoBean
-    private AuditLogRepository auditLogRepository;
 
     @MockitoBean
     private MongoTemplate mongoTemplate;
