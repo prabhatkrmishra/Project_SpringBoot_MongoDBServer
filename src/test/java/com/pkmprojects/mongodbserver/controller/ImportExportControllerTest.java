@@ -22,6 +22,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -73,8 +74,9 @@ class ImportExportControllerTest {
                 .andReturn();
 
         mockMvc.perform(asyncDispatch(result))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("alice")));
+                .andExpect(status().isOk());
+
+        assertThat(awaitStreamedBody(result)).contains("alice");
 
         verify(importExportService).requireCollection("myapp", "users");
         verify(importExportService).writeAllDocumentsAsJson(eq("myapp"), eq("users"), any());
@@ -109,10 +111,24 @@ class ImportExportControllerTest {
                 .andReturn();
 
         mockMvc.perform(asyncDispatch(result))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Alice")));
+                .andExpect(status().isOk());
+
+        assertThat(awaitStreamedBody(result)).contains("Alice");
 
         verify(importExportService).requireCollection("myapp", "users");
+    }
+
+    private static String awaitStreamedBody(MvcResult result) throws Exception {
+        String content;
+        long deadline = System.currentTimeMillis() + 5000;
+        do {
+            content = result.getResponse().getContentAsString();
+            if (!content.isEmpty()) {
+                return content;
+            }
+            Thread.sleep(10);
+        } while (System.currentTimeMillis() < deadline);
+        return content;
     }
 
     @Test

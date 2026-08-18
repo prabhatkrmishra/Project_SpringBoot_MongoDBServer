@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -21,12 +22,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -62,10 +65,18 @@ class BackupControllerTest {
             return new BackupService.BackupResult("myapp", 1, 2);
         }).when(backupService).writeBackup(eq("myapp"), any(OutputStream.class));
 
-        mockMvc.perform(get("/databases/myapp/backup").with(user("admin").roles("ADMIN")))
+        MvcResult result = mockMvc.perform(get("/databases/myapp/backup").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", containsString("attachment; filename=\"backup-myapp-")))
-                .andExpect(content().string(containsString("formatVersion")));
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(result))
+                .andExpect(status().isOk());
+
+        // The streaming body is written on a background thread, so wait for it
+        // rather than racing it.
+        assertThat(awaitStreamedBody(result)).contains("formatVersion");
 
         verify(backupService).requireDatabaseExists("myapp");
     }
@@ -192,6 +203,19 @@ class BackupControllerTest {
                 .andExpect(status().isForbidden());
 
         verify(backupService, never()).restore(any(), any(), anyBoolean());
+    }
+
+    private static String awaitStreamedBody(MvcResult result) throws Exception {
+        String content;
+        long deadline = System.currentTimeMillis() + 5000;
+        do {
+            content = result.getResponse().getContentAsString();
+            if (!content.isEmpty()) {
+                return content;
+            }
+            Thread.sleep(10);
+        } while (System.currentTimeMillis() < deadline);
+        return content;
     }
 
     @TestConfiguration(proxyBeanMethods = false)
