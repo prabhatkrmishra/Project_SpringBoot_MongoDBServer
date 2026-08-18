@@ -25,6 +25,10 @@ public class AuditEvent {
      * Event type: a database was deleted.
      */
     public static final String DELETE = "DELETE";
+    /**
+     * Event type: a database user was revoked.
+     */
+    public static final String REVOKE_USER = "REVOKE_USER";
 
     @Id
     private String id;
@@ -46,7 +50,7 @@ public class AuditEvent {
     /**
      * Records one admin action on the provisioning lifecycle.
      *
-     * @param eventType   one of {@link #PROVISION}, {@link #RESET_PASSWORD}, {@link #DELETE}
+     * @param eventType   one of {@link #PROVISION}, {@link #RESET_PASSWORD}, {@link #DELETE}, {@link #REVOKE_USER}
      * @param dbName      affected database
      * @param userName    affected database user, or {@code null} (e.g. delete of a
      *                    database that was never provisioned)

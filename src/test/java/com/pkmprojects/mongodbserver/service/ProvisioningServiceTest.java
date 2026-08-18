@@ -468,7 +468,7 @@ class ProvisioningServiceTest {
     }
 
     @Test
-    void revokeUserDropsUser() {
+    void revokeUserDropsUserAndAudits() {
         when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
         Document user1 = new Document("user", "appuser").append("roles", List.of()).append("db", "myapp");
         Document user2 = new Document("user", "otheruser").append("roles", List.of()).append("db", "myapp");
@@ -477,6 +477,18 @@ class ProvisioningServiceTest {
         service.revokeUser("myapp", "appuser");
 
         verify(mongoDatabaseRepository).dropUser("myapp", "appuser");
+        ArgumentCaptor<AuditEvent> auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditLogRepository).save(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().getEventType()).isEqualTo(AuditEvent.REVOKE_USER);
+        assertThat(auditCaptor.getValue().getDbName()).isEqualTo("myapp");
+        assertThat(auditCaptor.getValue().getUserName()).isEqualTo("appuser");
+    }
+
+    @Test
+    void revokeUserRejectsInvalidUserName() {
+        assertThatThrownBy(() -> service.revokeUser("myapp", "invalid user!"))
+                .isInstanceOf(NameNotAllowedException.class);
+        verify(mongoDatabaseRepository, never()).dropUser(any(), any());
     }
 
     @Test

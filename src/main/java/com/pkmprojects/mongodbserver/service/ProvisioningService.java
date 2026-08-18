@@ -314,6 +314,7 @@ public class ProvisioningService {
      */
     public void revokeUser(String dbName, String userName) {
         nameValidator.validateDatabaseName(dbName);
+        nameValidator.validateUserName(userName);
         withDatabaseLock(dbName, () -> {
             requireDatabase(dbName);
             List<Document> users = mongoDatabaseRepository.getUsers(dbName);
@@ -330,6 +331,7 @@ public class ProvisioningService {
                 log.error("Failed to revoke user '{}' from database '{}'", userName, dbName, e);
                 throw new ProvisioningException("Could not revoke user '" + userName + "'", e);
             }
+            audit(AuditEvent.REVOKE_USER, dbName, userName, clock.instant());
             log.info("Revoked user '{}' from database '{}'", userName, dbName);
         });
     }
