@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Webhooks')}"></head>
+<body>
+    <div class="layout">
+        <aside th:replace="~{fragments/nav :: nav('webhooks')}"></aside>
+
+        <div class="main">
+            <main th:replace="~{fragments/nav :: flash}"></main>
+
+            <main class="container-xxl py-4">
+                <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <h1 class="mb-1">Webhooks</h1>
+                        <p class="mb-0">
+                            Notify external endpoints when admin actions happen.
+                            <span th:text="${#lists.size(webhooks)}">0</span> endpoint(s) configured.
+                        </p>
+                    </div>
+                    <a class="btn btn-sm btn-outline-secondary" th:href="@{/}">
+                        <i class="bi bi-arrow-left"></i> Dashboard
+                    </a>
+                </div>
+
+                <section class="card shadow-sm mb-4">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                        <h2 class="h6 mb-0">
+                            <i class="bi bi-plus-circle text-primary me-1"></i> Add endpoint
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-body-secondary mb-4">
+                            Each event is delivered as a JSON POST. Set a secret to sign payloads with
+                            <code>X-Webhook-Signature: sha256=&lt;hex&gt;</code> so receivers can verify authenticity.
+                        </p>
+                        <form class="form-grid" method="post" th:action="@{/webhooks}" th:object="${form}">
+                            <div class="mb-3">
+                                <label class="form-label" for="name">Name</label>
+                                <input class="form-control" id="name" maxlength="64" required th:field="*{name}"
+                                       type="text" placeholder="e.g., Slack notifications">
+                                <div class="text-danger small mt-1" th:errors="*{name}"
+                                     th:if="${#fields.hasErrors('name')}">Error
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="url">Endpoint URL</label>
+                                <input class="form-control font-monospace" id="url" maxlength="500" required
+                                       th:field="*{url}" type="url" placeholder="https://example.com/hooks/events">
+                                <div class="form-hint">Must be a valid http(s) URL</div>
+                                <div class="text-danger small mt-1" th:errors="*{url}"
+                                     th:if="${#fields.hasErrors('url')}">Error
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="secret">
+                                    Secret <span class="text-body-secondary">(optional)</span>
+                                </label>
+                                <div class="input-group">
+                                    <input autocomplete="new-password" class="form-control" id="secret"
+                                           maxlength="128" th:field="*{secret}" type="password"
+                                           placeholder="Used to sign payloads">
+                                    <button class="btn btn-outline-secondary" data-toggle-password="secret" type="button">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="text-danger small mt-1" th:errors="*{secret}"
+                                     th:if="${#fields.hasErrors('secret')}">Error
+                                </div>
+                            </div>
+                            <div class="mb-3 full">
+                                <span class="form-label d-block">Events</span>
+                                <div class="d-flex flex-wrap gap-2 mt-1">
+                                    <div class="form-check" th:each="type : ${eventTypes}">
+                                        <input class="form-check-input" th:id="'event-' + ${type}"
+                                               th:name="eventTypes" th:value="${type}" type="checkbox">
+                                        <label class="form-check-label small" th:for="'event-' + ${type}"
+                                               th:text="${#strings.replace(type, '_', ' ')}">PROVISION</label>
+                                    </div>
+                                </div>
+                                <div class="form-hint">Leave all unchecked to receive every event</div>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="bi bi-plus-lg me-1"></i> Add webhook
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="card shadow-sm">
+                    <div class="card-header bg-transparent">
+                        <h3 class="h6 mb-0"><i class="bi bi-webhook text-primary"></i> Endpoints</h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <p class="text-body-secondary p-3 mb-0" th:if="${#lists.isEmpty(webhooks)}">
+                            No webhook endpoints configured yet. Add one above to start receiving notifications.
+                        </p>
+                        <div class="table-responsive" th:if="${!#lists.isEmpty(webhooks)}">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>URL</th>
+                                        <th>Events</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="webhook : ${webhooks}">
+                                        <td>
+                                            <span class="fw-medium" th:text="${webhook.name}">Slack</span>
+                                        </td>
+                                        <td>
+                                            <span class="font-monospace small text-body-secondary"
+                                                  th:text="${webhook.url}">https://example.com</span>
+                                        </td>
+                                        <td>
+                                            <span th:if="${#lists.isEmpty(webhook.eventTypes)}"
+                                                  class="badge badge-soft-info">All events</span>
+                                            <span th:if="${!#lists.isEmpty(webhook.eventTypes)}">
+                                                <span class="badge badge-soft-secondary me-1"
+                                                      th:each="type : ${webhook.eventTypes}"
+                                                      th:text="${#strings.replace(type, '_', ' ')}">PROVISION</span>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-soft-success" th:if="${webhook.enabled}">Enabled</span>
+                                            <span class="badge badge-soft-danger" th:if="${!webhook.enabled}">Disabled</span>
+                                        </td>
+                                        <td class="text-body-secondary" th:text="${webhook.createdAt}">-</td>
+                                        <td class="text-end text-nowrap">
+                                            <form class="d-inline" method="post"
+                                                  th:action="@{/webhooks/{id}/toggle(id=${webhook.id})}">
+                                                <button class="btn btn-sm btn-outline-secondary" type="submit">
+                                                    <i class="bi bi-pause-fill" th:if="${webhook.enabled}"></i>
+                                                    <i class="bi bi-play-fill" th:if="${!webhook.enabled}"></i>
+                                                    <span th:text="${webhook.enabled} ? 'Disable' : 'Enable'">Disable</span>
+                                                </button>
+                                            </form>
+                                            <form class="d-inline" method="post"
+                                                  th:action="@{/webhooks/{id}/delete(id=${webhook.id})}"
+                                                  th:attr="data-confirm='Delete webhook ' + ${webhook.name} + '?'">
+                                                <button class="btn btn-sm btn-outline-danger" type="submit">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

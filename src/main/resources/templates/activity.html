@@ -38,6 +38,9 @@
                                     <option value="RESET_PASSWORD" th:selected="${eventType == 'RESET_PASSWORD'}">Reset password</option>
                                     <option value="REVOKE_USER" th:selected="${eventType == 'REVOKE_USER'}">Revoke user</option>
                                     <option value="DELETE" th:selected="${eventType == 'DELETE'}">Delete</option>
+                                    <option value="WEBHOOK_CREATED" th:selected="${eventType == 'WEBHOOK_CREATED'}">Create webhook</option>
+                                    <option value="WEBHOOK_UPDATED" th:selected="${eventType == 'WEBHOOK_UPDATED'}">Update webhook</option>
+                                    <option value="WEBHOOK_DELETED" th:selected="${eventType == 'WEBHOOK_DELETED'}">Delete webhook</option>
                                 </select>
                             </div>
                             <div class="col-sm-6 col-md-3">

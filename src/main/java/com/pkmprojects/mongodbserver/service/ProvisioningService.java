@@ -11,6 +11,7 @@ import com.pkmprojects.mongodbserver.error.DatabaseAlreadyExistsException;
 import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
 import com.pkmprojects.mongodbserver.error.ProvisioningException;
 import com.pkmprojects.mongodbserver.model.AuditEvent;
+import com.pkmprojects.mongodbserver.model.AuditEventRecorded;
 import com.pkmprojects.mongodbserver.model.ManagedDatabase;
 import com.pkmprojects.mongodbserver.repository.AuditLogRepository;
 import com.pkmprojects.mongodbserver.repository.ManagedDatabaseRepository;
@@ -18,6 +19,7 @@ import com.pkmprojects.mongodbserver.repository.MongoDatabaseRepository;
 import com.pkmprojects.mongodbserver.security.PasswordGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.env.Environment;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -79,6 +81,7 @@ public class ProvisioningService {
     private final PasswordGenerator passwordGenerator;
     private final Clock clock;
     private final Environment environment;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public ProvisioningService(MongoDatabaseRepository mongoDatabaseRepository,
                                ManagedDatabaseRepository managedDatabaseRepository,
@@ -86,7 +89,8 @@ public class ProvisioningService {
                                MongoNameValidator nameValidator,
                                PasswordGenerator passwordGenerator,
                                Clock clock,
-                               Environment environment) {
+                               Environment environment,
+                               ApplicationEventPublisher applicationEventPublisher) {
         this.mongoDatabaseRepository = mongoDatabaseRepository;
         this.managedDatabaseRepository = managedDatabaseRepository;
         this.auditLogRepository = auditLogRepository;
@@ -94,6 +98,7 @@ public class ProvisioningService {
         this.passwordGenerator = passwordGenerator;
         this.clock = clock;
         this.environment = environment;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     /**
@@ -424,7 +429,9 @@ public class ProvisioningService {
     }
 
     private void audit(String eventType, String dbName, String userName, Instant performedAt) {
-        auditLogRepository.save(new AuditEvent(eventType, dbName, userName, currentUsername(), performedAt));
+        AuditEvent event = new AuditEvent(eventType, dbName, userName, currentUsername(), performedAt);
+        auditLogRepository.save(event);
+        applicationEventPublisher.publishEvent(new AuditEventRecorded(event));
     }
 
     private String currentUsername() {

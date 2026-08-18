@@ -1,0 +1,201 @@
+package com.pkmprojects.mongodbserver.service;
+
+import com.pkmprojects.mongodbserver.model.AuditEvent;
+import com.pkmprojects.mongodbserver.model.AuditEventRecorded;
+import com.pkmprojects.mongodbserver.model.WebhookConfig;
+import com.pkmprojects.mongodbserver.repository.WebhookConfigRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import jakarta.annotation.PreDestroy;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * Delivers admin-action notifications to configured webhook endpoints. Listens
+ * for {@link AuditEventRecorded} events, fans out to every enabled webhook that
+ * subscribes to the event type, and POSTs a JSON payload asynchronously so a
+ * slow or unreachable endpoint never blocks the admin action that triggered it.
+ *
+ * <p>Payloads are signed with HMAC-SHA256 ({@code X-Webhook-Signature:
+ * sha256=<hex>}) when the webhook has a secret. Delivery retries transient
+ * failures up to {@value #MAX_DELIVERY_ATTEMPTS} times.
+ */
+@Service
+public class WebhookNotifier {
+
+    private static final Logger log = LoggerFactory.getLogger(WebhookNotifier.class);
+
+    static final int MAX_DELIVERY_ATTEMPTS = 3;
+    private static final long RETRY_DELAY_MILLIS = 500;
+    private static final int MAX_CONCURRENT_DELIVERIES = 8;
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
+
+    private final WebhookConfigRepository webhookConfigRepository;
+    private final HttpClient httpClient;
+    private final ExecutorService executor;
+
+    @Autowired
+    public WebhookNotifier(WebhookConfigRepository webhookConfigRepository, HttpClient httpClient) {
+        this(webhookConfigRepository, httpClient,
+                Executors.newFixedThreadPool(MAX_CONCURRENT_DELIVERIES));
+    }
+
+    WebhookNotifier(WebhookConfigRepository webhookConfigRepository, HttpClient httpClient,
+                    ExecutorService executor) {
+        this.webhookConfigRepository = webhookConfigRepository;
+        this.httpClient = httpClient;
+        this.executor = executor;
+    }
+
+    /**
+     * Fans out an audit event to every enabled webhook subscribed to its type.
+     * Runs synchronously for the (cheap) subscription query; deliveries are
+     * submitted to the bounded executor.
+     */
+    @EventListener
+    public void onAuditEvent(AuditEventRecorded recorded) {
+        AuditEvent event = recorded.event();
+        List<WebhookConfig> matching = webhookConfigRepository.findByEnabledTrue().stream()
+                .filter(WebhookConfig::isEnabled)
+                .filter(webhook -> webhook.getEventTypes().isEmpty()
+                        || webhook.getEventTypes().contains(event.getEventType()))
+                .toList();
+        for (WebhookConfig webhook : matching) {
+            executor.submit(() -> deliver(webhook, event));
+        }
+    }
+
+    /**
+     * POSTs the event payload to one webhook, retrying transient failures.
+     * Package-private so tests can drive delivery directly.
+     */
+    void deliver(WebhookConfig webhook, AuditEvent event) {
+        try {
+            String payload = toJson(event);
+            HttpRequest request = buildRequest(webhook, payload);
+            for (int attempt = 1; attempt <= MAX_DELIVERY_ATTEMPTS; attempt++) {
+                if (send(request, webhook.getName(), attempt)) {
+                    return;
+                }
+                if (attempt < MAX_DELIVERY_ATTEMPTS && !sleep(RETRY_DELAY_MILLIS)) {
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            log.error("Could not deliver webhook '{}' for event {}", webhook.getName(), event.getEventType(), e);
+        }
+    }
+
+    private boolean send(HttpRequest request, String webhookName, int attempt) {
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                return true;
+            }
+            log.warn("Webhook '{}' returned status {} (attempt {}/{})",
+                    webhookName, response.statusCode(), attempt, MAX_DELIVERY_ATTEMPTS);
+            return false;
+        } catch (IOException e) {
+            log.warn("Webhook '{}' delivery failed (attempt {}/{})", webhookName, attempt, MAX_DELIVERY_ATTEMPTS, e);
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return true;
+        }
+    }
+
+    private HttpRequest buildRequest(WebhookConfig webhook, String payload) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(webhook.getUrl()))
+                .timeout(REQUEST_TIMEOUT)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(payload));
+        String signature = sign(payload, webhook.getSecret());
+        if (signature != null) {
+            builder.header("X-Webhook-Signature", signature);
+        }
+        return builder.build();
+    }
+
+    private static String toJson(AuditEvent event) {
+        return "{\"eventType\":\"" + escape(event.getEventType())
+                + "\",\"dbName\":" + jsonString(event.getDbName())
+                + ",\"userName\":" + jsonString(event.getUserName())
+                + ",\"performedBy\":\"" + escape(event.getPerformedBy())
+                + "\",\"performedAt\":\"" + escape(event.getPerformedAt().toString()) + "\"}";
+    }
+
+    private static String jsonString(String value) {
+        return value == null ? "null" : "\"" + escape(value) + "\"";
+    }
+
+    private static String escape(String value) {
+        StringBuilder escaped = new StringBuilder(value.length() + 8);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '"' -> escaped.append("\\\"");
+                case '\\' -> escaped.append("\\\\");
+                case '\b' -> escaped.append("\\b");
+                case '\f' -> escaped.append("\\f");
+                case '\n' -> escaped.append("\\n");
+                case '\r' -> escaped.append("\\r");
+                case '\t' -> escaped.append("\\t");
+                default -> {
+                    if (c < 0x20) {
+                        escaped.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        escaped.append(c);
+                    }
+                }
+            }
+        }
+        return escaped.toString();
+    }
+
+    private static String sign(String payload, String secret) {
+        if (secret == null || secret.isBlank()) {
+            return null;
+        }
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] digest = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            return "sha256=" + HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            log.error("Could not sign webhook payload", e);
+            return null;
+        }
+    }
+
+    private static boolean sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    @PreDestroy
+    void shutdown() {
+        executor.shutdown();
+    }
+}

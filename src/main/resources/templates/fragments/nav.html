@@ -44,6 +44,9 @@
             <a class="sidebar-link sidebar-link-accent" th:href="@{/databases/new}" th:if="${canWrite}">
                 <i class="bi bi-plus-circle"></i> New database
             </a>
+            <a class="sidebar-link" th:classappend="${page == 'webhooks'} ? 'active'" th:href="@{/webhooks}" th:if="${canWrite}">
+                <i class="bi bi-webhook"></i> Webhooks
+            </a>
         </nav>
 
         <div class="sidebar-footer">

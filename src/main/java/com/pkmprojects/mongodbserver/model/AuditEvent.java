@@ -4,6 +4,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * One admin action on the provisioning lifecycle, stored in the
@@ -29,6 +30,26 @@ public class AuditEvent {
      * Event type: a database user was revoked.
      */
     public static final String REVOKE_USER = "REVOKE_USER";
+    /**
+     * Event type: a webhook endpoint was created.
+     */
+    public static final String WEBHOOK_CREATED = "WEBHOOK_CREATED";
+    /**
+     * Event type: a webhook endpoint was enabled or disabled.
+     */
+    public static final String WEBHOOK_UPDATED = "WEBHOOK_UPDATED";
+    /**
+     * Event type: a webhook endpoint was deleted.
+     */
+    public static final String WEBHOOK_DELETED = "WEBHOOK_DELETED";
+
+    /**
+     * Every event type, in display order. Used by the activity filter and the
+     * webhook subscription checkboxes.
+     */
+    public static final List<String> ALL_TYPES = List.of(
+            PROVISION, RESET_PASSWORD, DELETE, REVOKE_USER,
+            WEBHOOK_CREATED, WEBHOOK_UPDATED, WEBHOOK_DELETED);
 
     @Id
     private String id;

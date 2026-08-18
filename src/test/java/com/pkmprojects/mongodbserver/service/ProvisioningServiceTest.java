@@ -11,6 +11,7 @@ import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
 import com.pkmprojects.mongodbserver.error.NameNotAllowedException;
 import com.pkmprojects.mongodbserver.error.ProvisioningException;
 import com.pkmprojects.mongodbserver.model.AuditEvent;
+import com.pkmprojects.mongodbserver.model.AuditEventRecorded;
 import org.bson.Document;
 import com.pkmprojects.mongodbserver.model.ManagedDatabase;
 import com.pkmprojects.mongodbserver.repository.AuditLogRepository;
@@ -64,6 +65,8 @@ class ProvisioningServiceTest {
     private PasswordGenerator passwordGenerator;
     @Mock
     private Environment environment;
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher applicationEventPublisher;
 
     private ProvisioningService service;
 
@@ -77,7 +80,7 @@ class ProvisioningServiceTest {
                 new UsernamePasswordAuthenticationToken("admin", "n/a", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
         service = new ProvisioningService(mongoDatabaseRepository, managedDatabaseRepository,
                 auditLogRepository, new MongoNameValidator(), passwordGenerator,
-                Clock.fixed(NOW, ZoneOffset.UTC), environment);
+                Clock.fixed(NOW, ZoneOffset.UTC), environment, applicationEventPublisher);
     }
 
     @AfterEach
@@ -108,6 +111,11 @@ class ProvisioningServiceTest {
         assertThat(auditCaptor.getValue().getEventType()).isEqualTo(AuditEvent.PROVISION);
         assertThat(auditCaptor.getValue().getPerformedBy()).isEqualTo("admin");
         assertThat(auditCaptor.getValue().getPerformedAt()).isEqualTo(NOW);
+
+        ArgumentCaptor<AuditEventRecorded> eventCaptor = ArgumentCaptor.forClass(AuditEventRecorded.class);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().event().getEventType()).isEqualTo(AuditEvent.PROVISION);
+        assertThat(eventCaptor.getValue().event().getDbName()).isEqualTo("myapp");
 
         assertThat(info.provisioned()).isTrue();
         assertThat(info.connectionString()).isEqualTo("mongodb://appuser:generatedPass123@localhost:27017/myapp?authSource=myapp");

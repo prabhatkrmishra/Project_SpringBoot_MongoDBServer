@@ -48,6 +48,15 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Maps a missing webhook endpoint to HTTP 404.
+     */
+    @ExceptionHandler(WebhookNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public String webhookNotFound(WebhookNotFoundException ex, Model model) {
+        return errorView(model, HttpStatus.NOT_FOUND.value(), "Not Found", ex.getMessage());
+    }
+
+    /**
      * Maps a failed MongoDB driver operation to HTTP 500 with a generic message;
      * the full stack trace goes to the log, never to the browser.
      */
