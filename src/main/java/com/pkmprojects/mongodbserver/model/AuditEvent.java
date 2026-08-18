@@ -50,6 +50,10 @@ public class AuditEvent {
      * Event type: a database was restored from a backup file.
      */
     public static final String BACKUP_RESTORED = "BACKUP_RESTORED";
+    /**
+     * Event type: documents were bulk-imported into a collection.
+     */
+    public static final String IMPORT = "IMPORT";
 
     /**
      * Every event type, in display order. Used by the activity filter and the
@@ -58,7 +62,7 @@ public class AuditEvent {
     public static final List<String> ALL_TYPES = List.of(
             PROVISION, RESET_PASSWORD, DELETE, REVOKE_USER,
             WEBHOOK_CREATED, WEBHOOK_UPDATED, WEBHOOK_DELETED,
-            BACKUP_CREATED, BACKUP_RESTORED);
+            BACKUP_CREATED, BACKUP_RESTORED, IMPORT);
 
     @Id
     private String id;

@@ -35,7 +35,8 @@ public class SecurityConfig {
         http.authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login", "/css/**", "/js/**", "/webjars/**", "/error", "/favicon.ico").permitAll()
                         .requestMatchers("/databases/*/reset", "/databases/*/delete",
-                                "/databases/*/backup", "/databases/*/restore").hasRole("ADMIN")
+                                "/databases/*/backup", "/databases/*/restore",
+                                "/databases/*/collections/*/import").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/databases", "/databases/**").hasRole("ADMIN")
                         .requestMatchers("/webhooks", "/webhooks/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

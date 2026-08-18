@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Import ' + ${collectionName})}"></head>
+<body>
+    <div class="layout">
+        <aside th:replace="~{fragments/nav :: nav('collections')}"></aside>
+
+        <div class="main">
+            <main th:replace="~{fragments/nav :: flash}"></main>
+
+            <main class="container-xxl py-4">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a class="link-primary" th:href="@{/}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a class="link-primary" th:href="@{/databases/{name}(name=${dbName})}"
+                                                       th:text="${dbName}">database</a></li>
+                        <li class="breadcrumb-item"><a class="link-primary"
+                                                       th:href="@{/databases/{name}/collections/{cname}(name=${dbName}, cname=${collectionName})}"
+                                                       th:text="${collectionName}">collection</a></li>
+                        <li class="breadcrumb-item active">Import</li>
+                    </ol>
+                </nav>
+
+                <section class="card shadow-sm mb-4">
+                    <div class="card-header bg-transparent">
+                        <h2 class="h5 mb-0">
+                            <i class="bi bi-upload text-primary me-1"></i>
+                            Import documents into
+                            <span class="badge badge-soft-secondary ms-2" th:text="${collectionName}">users</span>
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-body-secondary">
+                            Upload a <strong>JSON</strong> file (an array of objects, or a single object) or a
+                            <strong>CSV</strong> file (first row = column names). Format is detected automatically.
+                            Imported documents are <strong>appended</strong>; nothing existing is removed.
+                        </p>
+                        <div class="alert alert-warning" role="alert">
+                            <i class="bi bi-info-circle me-2"></i>
+                            CSV cells import as plain text (empty cells become <code>null</code>). Use the
+                            JSON export / import when you need dates, ObjectIds or binary data to round-trip exactly.
+                        </div>
+
+                        <form method="post" enctype="multipart/form-data"
+                              th:action="@{/databases/{name}/collections/{cname}/import(name=${dbName}, cname=${collectionName})}">
+                            <div class="mb-3">
+                                <label class="form-label fw-medium" for="importFile">File to import</label>
+                                <input class="form-control" id="importFile" name="file" type="file"
+                                       accept=".json,.csv,application/json,text/csv" required>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="bi bi-upload"></i> Import
+                                </button>
+                                <a class="btn btn-outline-secondary"
+                                   th:href="@{/databases/{name}/collections/{cname}(name=${dbName}, cname=${collectionName})}">
+                                    Cancel
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+</body>
+</html>
