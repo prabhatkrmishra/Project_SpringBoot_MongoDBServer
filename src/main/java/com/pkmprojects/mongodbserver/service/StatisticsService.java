@@ -12,16 +12,27 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Read-only database statistics: aggregate {@code dbStats} plus per-collection
  * {@code collStats}. No business rules - the validator guards names and each
- * collection is read with a single bounded command.
+ * collection is read with a single bounded command. Per-collection commands
+ * run concurrently (bounded) so a database with many collections does not
+ * serialize into N sequential round trips.
  */
 @Service
 public class StatisticsService {
 
     private static final Logger log = LoggerFactory.getLogger(StatisticsService.class);
+
+    /**
+     * Upper bound on concurrent {@code collStats} commands per page load.
+     */
+    private static final int MAX_PARALLEL_COLLECTIONS = 16;
 
     private final MongoDatabaseRepository mongoDatabaseRepository;
     private final MongoNameValidator nameValidator;
@@ -48,9 +59,8 @@ public class StatisticsService {
             throw new ProvisioningException("Could not read statistics for database '" + dbName + "'", e);
         }
 
-        List<CollectionStats> collections = mongoDatabaseRepository.listCollectionNames(dbName).stream()
-                .map(collection -> collectionStats(dbName, collection))
-                .toList();
+        List<CollectionStats> collections = parallelCollectionStats(dbName,
+                mongoDatabaseRepository.listCollectionNames(dbName));
 
         return new DatabaseStats(
                 dbName,
@@ -63,6 +73,27 @@ public class StatisticsService {
                 intValue(stats.get("indexes")),
                 longValue(stats.get("indexSize")),
                 collections);
+    }
+
+    /**
+     * Reads {@code collStats} for every collection, issuing the commands
+     * concurrently on a bounded executor. A single collection (or none) is read
+     * inline to avoid executor overhead.
+     */
+    private List<CollectionStats> parallelCollectionStats(String dbName, List<String> collectionNames) {
+        if (collectionNames.size() <= 1) {
+            return collectionNames.stream().map(name -> collectionStats(dbName, name)).toList();
+        }
+        int threads = Math.min(collectionNames.size(), MAX_PARALLEL_COLLECTIONS);
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        try {
+            List<CompletableFuture<CollectionStats>> futures = collectionNames.stream()
+                    .map(name -> CompletableFuture.supplyAsync(() -> collectionStats(dbName, name), executor))
+                    .toList();
+            return futures.stream().map(StatisticsService::joinUnwrapping).toList();
+        } finally {
+            executor.shutdown();
+        }
     }
 
     private CollectionStats collectionStats(String dbName, String collectionName) {
@@ -81,6 +112,21 @@ public class StatisticsService {
                 longValue(stats.get("avgObjSize")),
                 intValue(stats.get("nindexes")),
                 longValue(stats.get("totalIndexSize")));
+    }
+
+    /**
+     * {@link CompletableFuture#join()} unwraps the {@link CompletionException}
+     * so the original {@link ProvisioningException} reaches the error handler.
+     */
+    private static <T> T joinUnwrapping(CompletableFuture<T> future) {
+        try {
+            return future.join();
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw e;
+        }
     }
 
     private void requireDatabase(String dbName) {

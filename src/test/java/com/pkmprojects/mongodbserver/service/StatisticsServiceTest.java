@@ -120,6 +120,19 @@ class StatisticsServiceTest {
     }
 
     @Test
+    void getDatabaseStatsPropagatesProvisioningExceptionFromParallelCollStats() {
+        when(mongoDatabaseRepository.databaseExists("myapp")).thenReturn(true);
+        when(mongoDatabaseRepository.getDbStats("myapp")).thenReturn(new Document("collections", 2));
+        when(mongoDatabaseRepository.listCollectionNames("myapp")).thenReturn(List.of("users", "orders"));
+        when(mongoDatabaseRepository.getCollectionStats("myapp", "users")).thenReturn(new Document("count", 1));
+        doThrow(mongoError(13, "Unauthorized")).when(mongoDatabaseRepository).getCollectionStats("myapp", "orders");
+
+        assertThatThrownBy(() -> service.getDatabaseStats("myapp"))
+                .isInstanceOf(ProvisioningException.class)
+                .hasMessageContaining("orders");
+    }
+
+    @Test
     void byteLabelsFormatHumanReadable() {
         assertThat(new DatabaseStats("d", 0, 0, 0, 512, 0, 0, 0, 0, List.of())
                 .dataSizeLabel()).isEqualTo("512 B");
