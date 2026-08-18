@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -152,6 +153,30 @@ class WebhookNotifierTest {
     }
 
     @Test
+    void onAuditEventSurvivesWebhookQueryFailure() {
+        when(webhookConfigRepository.findByEnabledTrue())
+                .thenThrow(new IllegalStateException("webhook_configs unavailable"));
+
+        // Must not throw: a webhook-infrastructure failure must never fail the
+        // admin action that published the event.
+        assertThatCode(() -> notifier.onAuditEvent(event()))
+                .doesNotThrowAnyException();
+
+        verifyNoInteractions(httpClient);
+    }
+
+    @Test
+    void onAuditEventSurvivesRejectedSubmitDuringShutdown() {
+        when(webhookConfigRepository.findByEnabledTrue()).thenReturn(List.of(
+                webhook("slack", "https://example.com/hooks/events", null, List.of(), true)));
+        doThrow(new java.util.concurrent.RejectedExecutionException("executor shut down"))
+                .when(executor).submit(any(Runnable.class));
+
+        assertThatCode(() -> notifier.onAuditEvent(event()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void webhookWithoutEventTypesReceivesAllEvents() throws Exception {
         HttpResponse<String> ok = response(200);
         when(webhookConfigRepository.findByEnabledTrue()).thenReturn(List.of(
@@ -196,6 +221,19 @@ class WebhookNotifierTest {
 
         verify(httpClient, times(WebhookNotifier.MAX_DELIVERY_ATTEMPTS))
                 .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    }
+
+    @Test
+    void permanentClientErrorIsNotRetried() throws Exception {
+        HttpResponse<String> badRequest = response(400);
+        when(webhookConfigRepository.findByEnabledTrue()).thenReturn(List.of(
+                webhook("slack", "https://example.com/hooks/events", null, List.of(), true)));
+        when(httpClient.<String>send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(badRequest);
+
+        notifier.onAuditEvent(event());
+
+        verify(httpClient, times(1)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
     }
 
     @Test

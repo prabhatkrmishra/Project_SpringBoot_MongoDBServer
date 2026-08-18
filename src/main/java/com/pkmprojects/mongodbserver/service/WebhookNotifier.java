@@ -72,13 +72,20 @@ public class WebhookNotifier {
     @EventListener
     public void onAuditEvent(AuditEventRecorded recorded) {
         AuditEvent event = recorded.event();
-        List<WebhookConfig> matching = webhookConfigRepository.findByEnabledTrue().stream()
-                .filter(WebhookConfig::isEnabled)
-                .filter(webhook -> webhook.getEventTypes().isEmpty()
-                        || webhook.getEventTypes().contains(event.getEventType()))
-                .toList();
-        for (WebhookConfig webhook : matching) {
-            executor.submit(() -> deliver(webhook, event));
+        try {
+            List<WebhookConfig> matching = webhookConfigRepository.findByEnabledTrue().stream()
+                    .filter(WebhookConfig::isEnabled)
+                    .filter(webhook -> webhook.getEventTypes().isEmpty()
+                            || webhook.getEventTypes().contains(event.getEventType()))
+                    .toList();
+            for (WebhookConfig webhook : matching) {
+                executor.submit(() -> deliver(webhook, event));
+            }
+        } catch (Exception e) {
+            // Notifications are best-effort. A failure to read webhook configs
+            // (or a rejected submit during shutdown) must never fail the admin
+            // action that triggered the event.
+            log.warn("Could not fan out event {} to webhooks: {}", event.getEventType(), e.getMessage());
         }
     }
 
@@ -103,14 +110,25 @@ public class WebhookNotifier {
         }
     }
 
+    /**
+     * Sends one attempt. Returns {@code true} when delivery is settled (success
+     * or a permanent failure that retrying cannot fix), {@code false} when the
+     * attempt is worth retrying.
+     */
     private boolean send(HttpRequest request, String webhookName, int attempt) {
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+            int statusCode = response.statusCode();
+            if (statusCode >= 200 && statusCode < 300) {
+                return true;
+            }
+            if (statusCode >= 400 && statusCode < 500 && statusCode != 429) {
+                log.warn("Webhook '{}' permanently rejected payload with status {}; not retrying",
+                        webhookName, statusCode);
                 return true;
             }
             log.warn("Webhook '{}' returned status {} (attempt {}/{})",
-                    webhookName, response.statusCode(), attempt, MAX_DELIVERY_ATTEMPTS);
+                    webhookName, statusCode, attempt, MAX_DELIVERY_ATTEMPTS);
             return false;
         } catch (IOException e) {
             log.warn("Webhook '{}' delivery failed (attempt {}/{})", webhookName, attempt, MAX_DELIVERY_ATTEMPTS, e);
