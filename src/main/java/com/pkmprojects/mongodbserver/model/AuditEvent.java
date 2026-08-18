@@ -42,6 +42,14 @@ public class AuditEvent {
      * Event type: a webhook endpoint was deleted.
      */
     public static final String WEBHOOK_DELETED = "WEBHOOK_DELETED";
+    /**
+     * Event type: a database backup was downloaded/created.
+     */
+    public static final String BACKUP_CREATED = "BACKUP_CREATED";
+    /**
+     * Event type: a database was restored from a backup file.
+     */
+    public static final String BACKUP_RESTORED = "BACKUP_RESTORED";
 
     /**
      * Every event type, in display order. Used by the activity filter and the
@@ -49,7 +57,8 @@ public class AuditEvent {
      */
     public static final List<String> ALL_TYPES = List.of(
             PROVISION, RESET_PASSWORD, DELETE, REVOKE_USER,
-            WEBHOOK_CREATED, WEBHOOK_UPDATED, WEBHOOK_DELETED);
+            WEBHOOK_CREATED, WEBHOOK_UPDATED, WEBHOOK_DELETED,
+            BACKUP_CREATED, BACKUP_RESTORED);
 
     @Id
     private String id;

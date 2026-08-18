@@ -34,7 +34,8 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login", "/css/**", "/js/**", "/webjars/**", "/error", "/favicon.ico").permitAll()
-                        .requestMatchers("/databases/*/reset", "/databases/*/delete").hasRole("ADMIN")
+                        .requestMatchers("/databases/*/reset", "/databases/*/delete",
+                                "/databases/*/backup", "/databases/*/restore").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/databases", "/databases/**").hasRole("ADMIN")
                         .requestMatchers("/webhooks", "/webhooks/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

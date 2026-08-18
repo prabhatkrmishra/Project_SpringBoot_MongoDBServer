@@ -1,6 +1,7 @@
 package com.pkmprojects.mongodbserver.repository;
 
 import com.mongodb.client.MongoClient;
+import com.mongodb.client.model.IndexOptions;
 import org.bson.Document;
 import org.springframework.stereotype.Repository;
 
@@ -8,6 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Data-access gateway for MongoDB server administration using the MongoDB Java driver:
@@ -208,6 +210,43 @@ public class MongoDatabaseRepository {
                 .limit(limit)
                 .forEach(documents::add);
         return documents;
+    }
+
+    /**
+     * Streams every document in {@code dbName}.{@code collectionName} to
+     * {@code consumer}, one at a time (never materializes the whole collection).
+     */
+    public void streamDocuments(String dbName, String collectionName, Consumer<Document> consumer) {
+        mongoClient.getDatabase(dbName).getCollection(collectionName).find().forEach(consumer);
+    }
+
+    /**
+     * @return the index catalog of {@code dbName}.{@code collectionName} as raw
+     *         driver documents (including the implicit {@code _id_} index)
+     */
+    public List<Document> listCollectionIndexes(String dbName, String collectionName) {
+        return mongoClient.getDatabase(dbName).getCollection(collectionName)
+                .listIndexes()
+                .into(new ArrayList<>());
+    }
+
+    /**
+     * Creates an index on {@code dbName}.{@code collectionName}.
+     *
+     * @param keys   index key document, e.g. {@code {username: 1}}
+     * @param unique whether the index enforces uniqueness
+     */
+    public void createIndex(String dbName, String collectionName, Document keys, boolean unique) {
+        mongoClient.getDatabase(dbName).getCollection(collectionName)
+                .createIndex(keys, new IndexOptions().unique(unique));
+    }
+
+    /**
+     * Inserts many documents into {@code dbName}.{@code collectionName} in one
+     * round trip.
+     */
+    public void insertDocuments(String dbName, String collectionName, List<Document> documents) {
+        mongoClient.getDatabase(dbName).getCollection(collectionName).insertMany(documents);
     }
 
     /**

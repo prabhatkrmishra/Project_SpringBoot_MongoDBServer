@@ -4,6 +4,7 @@ import com.pkmprojects.mongodbserver.model.AuditEvent;
 import com.pkmprojects.mongodbserver.model.AuditEventRecorded;
 import com.pkmprojects.mongodbserver.model.WebhookConfig;
 import com.pkmprojects.mongodbserver.repository.WebhookConfigRepository;
+import com.pkmprojects.mongodbserver.util.Json;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -160,39 +161,11 @@ public class WebhookNotifier {
     }
 
     private static String toJson(AuditEvent event) {
-        return "{\"eventType\":\"" + escape(event.getEventType())
-                + "\",\"dbName\":" + jsonString(event.getDbName())
-                + ",\"userName\":" + jsonString(event.getUserName())
-                + ",\"performedBy\":\"" + escape(event.getPerformedBy())
-                + "\",\"performedAt\":\"" + escape(event.getPerformedAt().toString()) + "\"}";
-    }
-
-    private static String jsonString(String value) {
-        return value == null ? "null" : "\"" + escape(value) + "\"";
-    }
-
-    private static String escape(String value) {
-        StringBuilder escaped = new StringBuilder(value.length() + 8);
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            switch (c) {
-                case '"' -> escaped.append("\\\"");
-                case '\\' -> escaped.append("\\\\");
-                case '\b' -> escaped.append("\\b");
-                case '\f' -> escaped.append("\\f");
-                case '\n' -> escaped.append("\\n");
-                case '\r' -> escaped.append("\\r");
-                case '\t' -> escaped.append("\\t");
-                default -> {
-                    if (c < 0x20) {
-                        escaped.append(String.format("\\u%04x", (int) c));
-                    } else {
-                        escaped.append(c);
-                    }
-                }
-            }
-        }
-        return escaped.toString();
+        return "{\"eventType\":" + Json.jsonString(event.getEventType())
+                + ",\"dbName\":" + Json.jsonString(event.getDbName())
+                + ",\"userName\":" + Json.jsonString(event.getUserName())
+                + ",\"performedBy\":" + Json.jsonString(event.getPerformedBy())
+                + ",\"performedAt\":" + Json.jsonString(event.getPerformedAt().toString()) + "}";
     }
 
     private static String sign(String payload, String secret) {

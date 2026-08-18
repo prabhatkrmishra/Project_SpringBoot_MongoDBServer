@@ -41,6 +41,8 @@
                                     <option value="WEBHOOK_CREATED" th:selected="${eventType == 'WEBHOOK_CREATED'}">Create webhook</option>
                                     <option value="WEBHOOK_UPDATED" th:selected="${eventType == 'WEBHOOK_UPDATED'}">Update webhook</option>
                                     <option value="WEBHOOK_DELETED" th:selected="${eventType == 'WEBHOOK_DELETED'}">Delete webhook</option>
+                                    <option value="BACKUP_CREATED" th:selected="${eventType == 'BACKUP_CREATED'}">Backup</option>
+                                    <option value="BACKUP_RESTORED" th:selected="${eventType == 'BACKUP_RESTORED'}">Restore</option>
                                 </select>
                             </div>
                             <div class="col-sm-6 col-md-3">

@@ -15,6 +15,12 @@ spring:
     error:
       whitelabel:
         enabled: false
+  servlet:
+    multipart:
+      # Restore uploads are full database backups (gzip'd JSON). Spring's
+      # defaults (1 MB file / 10 MB request) are far too small for that.
+      max-file-size: 256MB
+      max-request-size: 256MB
 
 server:
   port: 9811

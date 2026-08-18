@@ -47,6 +47,14 @@
                             </a>
                             <div class="d-flex gap-2" th:if="${canWrite}">
                                 <a class="btn btn-sm btn-outline-info"
+                                   th:href="@{/databases/{name}/backup(name=${database.dbName})}">
+                                    <i class="bi bi-download"></i> Backup
+                                </a>
+                                <a class="btn btn-sm btn-outline-info"
+                                   th:href="@{/databases/{name}/restore(name=${database.dbName})}">
+                                    <i class="bi bi-upload"></i> Restore
+                                </a>
+                                <a class="btn btn-sm btn-outline-info"
                                    th:href="@{/databases/{name}/users(name=${database.dbName})}">
                                     <i class="bi bi-people"></i> Users
                                 </a>
