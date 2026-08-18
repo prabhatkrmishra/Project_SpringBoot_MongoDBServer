@@ -67,11 +67,11 @@ public class MonitorController {
             MonitorSnapshot snapshot = monitorService.getSnapshot();
             emitter.send(SseEmitter.event().name("tick").data(monitorService.serialize(snapshot)));
         } catch (IOException e) {
-            // Client went away: complete the emitter and stop this stream.
+            // Client went away. The underlying response is already unusable, so
+            // do not complete() it (that throws AsyncRequestNotUsableException).
             // Re-throwing ends the scheduled task so it does not keep ticking
-            // into the void.
+            // into the void; onCompletion cancels the future.
             log.debug("Monitor SSE client disconnected", e);
-            emitter.complete();
             throw new SseStreamClosed(e);
         } catch (RuntimeException e) {
             // A snapshot failed. Close the stream so the browser reconnects
