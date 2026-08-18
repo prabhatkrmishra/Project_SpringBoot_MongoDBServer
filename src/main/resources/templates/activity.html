@@ -22,12 +22,57 @@
                     </a>
                 </div>
 
+                <section class="card shadow-sm mb-4">
+                    <div class="card-header bg-transparent">
+                        <h2 class="h6 mb-0">
+                            <i class="bi bi-funnel text-primary me-1"></i> Filter
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <form class="row g-2 align-items-end" method="get" th:action="@{/activity}">
+                            <div class="col-sm-6 col-md-3">
+                                <label class="form-label" for="filterEventType">Action</label>
+                                <select class="form-select form-select-sm" id="filterEventType" name="eventType">
+                                    <option value="">All actions</option>
+                                    <option value="PROVISION" th:selected="${eventType == 'PROVISION'}">Provision</option>
+                                    <option value="RESET_PASSWORD" th:selected="${eventType == 'RESET_PASSWORD'}">Reset password</option>
+                                    <option value="REVOKE_USER" th:selected="${eventType == 'REVOKE_USER'}">Revoke user</option>
+                                    <option value="DELETE" th:selected="${eventType == 'DELETE'}">Delete</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                <label class="form-label" for="filterDbName">Database</label>
+                                <input class="form-control form-control-sm" id="filterDbName" name="dbName"
+                                       placeholder="e.g. myapp" type="text" th:value="${dbName}">
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                <label class="form-label" for="filterUserName">User</label>
+                                <input class="form-control form-control-sm" id="filterUserName" name="userName"
+                                       placeholder="e.g. appuser" type="text" th:value="${userName}">
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                <label class="form-label" for="filterPerformedBy">Performed by</label>
+                                <input class="form-control form-control-sm" id="filterPerformedBy" name="performedBy"
+                                       placeholder="e.g. admin" type="text" th:value="${performedBy}">
+                            </div>
+                            <div class="col-12 d-flex gap-2">
+                                <button class="btn btn-sm btn-primary" type="submit">
+                                    <i class="bi bi-search"></i> Apply
+                                </button>
+                                <a class="btn btn-sm btn-outline-secondary" th:href="@{/activity}">
+                                    <i class="bi bi-x-lg"></i> Clear
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
                 <div class="card">
                     <div class="card-body p-0">
                         <div class="empty-state" th:if="${#lists.isEmpty(events)}">
                             <span class="empty-state-icon"><i class="bi bi-clock-history"></i></span>
-                            <p class="empty-state-title">No admin activity yet</p>
-                            <p class="empty-state-text">Provisioning, resets, and deletions will appear here.</p>
+                            <p class="empty-state-title">No matching activity</p>
+                            <p class="empty-state-text">Try adjusting your filters or clear them to see all activity.</p>
                         </div>
                         <div class="table-responsive" th:if="${!#lists.isEmpty(events)}">
                             <table class="table table-hover align-middle mb-0">
@@ -58,12 +103,14 @@
                     </div>
                     <div class="card-footer bg-transparent d-flex justify-content-between align-items-center"
                          th:if="${!#lists.isEmpty(events)}">
-                        <a class="btn btn-sm btn-outline-secondary" th:href="@{/activity(page=${page - 1})}"
+                        <a class="btn btn-sm btn-outline-secondary"
+                           th:href="@{/activity(page=${page - 1}, eventType=${eventType}, dbName=${dbName}, userName=${userName}, performedBy=${performedBy})}"
                            th:if="${hasPrev}">
                             <i class="bi bi-chevron-left"></i> Previous
                         </a>
                         <span class="text-body-secondary small" th:text="'Page ' + ${page} + ' of ' + ${totalPages}">Page 1 of 1</span>
-                        <a class="btn btn-sm btn-outline-secondary" th:href="@{/activity(page=${page + 1})}"
+                        <a class="btn btn-sm btn-outline-secondary"
+                           th:href="@{/activity(page=${page + 1}, eventType=${eventType}, dbName=${dbName}, userName=${userName}, performedBy=${performedBy})}"
                            th:if="${hasNext}">
                             Next <i class="bi bi-chevron-right"></i>
                         </a>

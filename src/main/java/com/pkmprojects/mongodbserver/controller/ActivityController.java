@@ -5,13 +5,20 @@ import com.pkmprojects.mongodbserver.repository.AuditLogRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Full, paginated view of the admin activity audit trail (read-only).
+ * Full, paginated view of the admin activity audit trail with optional
+ * server-side filtering (read-only).
  */
 @Controller
 public class ActivityController {
@@ -22,26 +29,64 @@ public class ActivityController {
     static final int PAGE_SIZE = 50;
 
     private final AuditLogRepository auditLogRepository;
+    private final MongoTemplate mongoTemplate;
 
-    public ActivityController(AuditLogRepository auditLogRepository) {
+    public ActivityController(AuditLogRepository auditLogRepository, MongoTemplate mongoTemplate) {
         this.auditLogRepository = auditLogRepository;
+        this.mongoTemplate = mongoTemplate;
     }
 
     /**
-     * Renders one page of the audit trail, newest first. Out-of-range pages
-     * clamp to the first page.
+     * Renders one page of the audit trail, newest first, with optional filters.
+     * Out-of-range pages clamp to the first page.
      */
     @GetMapping("/activity")
-    public String activity(@RequestParam(name = "page", defaultValue = "1") int page, Model model) {
+    public String activity(@RequestParam(name = "page", defaultValue = "1") int page,
+                           @RequestParam(name = "eventType", required = false) String eventType,
+                           @RequestParam(name = "dbName", required = false) String dbName,
+                           @RequestParam(name = "userName", required = false) String userName,
+                           @RequestParam(name = "performedBy", required = false) String performedBy,
+                           Model model) {
         int safePage = Math.max(page, 1);
-        Page<AuditEvent> events = auditLogRepository.findAll(
-                PageRequest.of(safePage - 1, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "performedAt")));
-        model.addAttribute("events", events.getContent());
-        model.addAttribute("page", safePage);
-        model.addAttribute("totalPages", Math.max(events.getTotalPages(), 1));
-        model.addAttribute("totalCount", events.getTotalElements());
-        model.addAttribute("hasPrev", events.hasPrevious());
-        model.addAttribute("hasNext", events.hasNext());
+
+        Query query = buildFilterQuery(eventType, dbName, userName, performedBy);
+        long total = mongoTemplate.count(query, AuditEvent.class);
+        int totalPages = Math.max((int) Math.ceil((double) total / PAGE_SIZE), 1);
+        int safePageIndex = Math.min(safePage - 1, totalPages - 1);
+
+        query.with(PageRequest.of(safePageIndex, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "performedAt")));
+        List<AuditEvent> events = mongoTemplate.find(query, AuditEvent.class);
+
+        model.addAttribute("events", events);
+        model.addAttribute("page", safePageIndex + 1);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("totalCount", total);
+        model.addAttribute("hasPrev", safePageIndex > 0);
+        model.addAttribute("hasNext", safePageIndex < totalPages - 1);
+        model.addAttribute("eventType", eventType != null ? eventType : "");
+        model.addAttribute("dbName", dbName != null ? dbName : "");
+        model.addAttribute("userName", userName != null ? userName : "");
+        model.addAttribute("performedBy", performedBy != null ? performedBy : "");
         return "activity";
+    }
+
+    private Query buildFilterQuery(String eventType, String dbName, String userName, String performedBy) {
+        List<Criteria> criteria = new ArrayList<>();
+        if (eventType != null && !eventType.isBlank()) {
+            criteria.add(Criteria.where("eventType").is(eventType.trim()));
+        }
+        if (dbName != null && !dbName.isBlank()) {
+            criteria.add(Criteria.where("dbName").regex(java.util.regex.Pattern.quote(dbName.trim()), "i"));
+        }
+        if (userName != null && !userName.isBlank()) {
+            criteria.add(Criteria.where("userName").regex(java.util.regex.Pattern.quote(userName.trim()), "i"));
+        }
+        if (performedBy != null && !performedBy.isBlank()) {
+            criteria.add(Criteria.where("performedBy").regex(java.util.regex.Pattern.quote(performedBy.trim()), "i"));
+        }
+        if (criteria.isEmpty()) {
+            return new Query();
+        }
+        return new Query(Criteria.where("id").exists(true).andOperator(criteria.toArray(new Criteria[0])));
     }
 }
