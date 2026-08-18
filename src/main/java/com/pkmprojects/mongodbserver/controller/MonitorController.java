@@ -74,10 +74,15 @@ public class MonitorController {
             log.debug("Monitor SSE client disconnected", e);
             throw new SseStreamClosed(e);
         } catch (RuntimeException e) {
-            // A snapshot failed. Close the stream so the browser reconnects
-            // cleanly instead of sitting on a silent, stalled stream.
+            // A snapshot failed. Best-effort signal the client, then stop the
+            // loop. If the response is already unusable (client gone), the
+            // signal is skipped rather than letting it cascade.
             log.warn("Monitor snapshot tick failed", e);
-            emitter.completeWithError(e);
+            try {
+                emitter.completeWithError(e);
+            } catch (RuntimeException ignored) {
+                log.debug("Could not signal monitor SSE error; response already unusable", ignored);
+            }
             throw e;
         }
     }

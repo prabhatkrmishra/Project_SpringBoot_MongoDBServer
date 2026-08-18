@@ -16,6 +16,8 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -32,6 +34,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Component
 public class MongoExpressProxyFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(MongoExpressProxyFilter.class);
 
     /**
      * URL prefix under which requests are proxied to mongo-express.
@@ -116,6 +120,12 @@ public class MongoExpressProxyFilter extends OncePerRequestFilter {
             if (NON_FORWARDED_HEADERS.contains(name.toLowerCase())) {
                 continue;
             }
+            // Never forward the admin session's own Authorization/Cookie headers
+            // upstream: the proxy injects its own basic-auth Authorization, and the
+            // admin session cookie must not leak to mongo-express.
+            if (name.equalsIgnoreCase("authorization") || name.equalsIgnoreCase("cookie")) {
+                continue;
+            }
             request.getHeaders(name).asIterator().forEachRemaining(value -> builder.header(name, value));
         }
         builder.method(request.getMethod(), body.length == 0
@@ -139,11 +149,14 @@ public class MongoExpressProxyFilter extends OncePerRequestFilter {
             response.getOutputStream().write(upstreamBody);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            log.warn("Mongo Express proxy request was interrupted", e);
             writeError(response, "Mongo Express proxy request was interrupted");
         } catch (ConnectException e) {
+            log.warn("Mongo Express is not reachable at {}", targetBase, e);
             writeError(response, "Mongo Express is not reachable. Is the container running?");
         } catch (IOException e) {
-            writeError(response, "Mongo Express proxy error: " + e.getMessage());
+            log.error("Mongo Express proxy request to {} failed", target, e);
+            writeError(response, "Mongo Express proxy request failed");
         }
     }
 

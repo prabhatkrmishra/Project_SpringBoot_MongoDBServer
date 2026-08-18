@@ -1,6 +1,6 @@
 package com.pkmprojects.mongodbserver.service;
 
-import com.mongodb.MongoCommandException;
+import com.mongodb.MongoException;
 import com.pkmprojects.mongodbserver.dto.CollectionStats;
 import com.pkmprojects.mongodbserver.dto.DatabaseStats;
 import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
@@ -54,7 +54,7 @@ public class StatisticsService {
         Document stats;
         try {
             stats = mongoDatabaseRepository.getDbStats(dbName);
-        } catch (MongoCommandException e) {
+        } catch (MongoException e) {
             log.warn("Could not read dbStats for {}", dbName, e);
             throw new ProvisioningException("Could not read statistics for database '" + dbName + "'", e);
         }
@@ -100,7 +100,7 @@ public class StatisticsService {
         Document stats;
         try {
             stats = mongoDatabaseRepository.getCollectionStats(dbName, collectionName);
-        } catch (MongoCommandException e) {
+        } catch (MongoException e) {
             log.warn("Could not read collStats for {}.{}", dbName, collectionName, e);
             throw new ProvisioningException("Could not read statistics for collection '" + collectionName + "'", e);
         }

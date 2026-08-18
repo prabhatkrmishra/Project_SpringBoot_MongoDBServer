@@ -6,9 +6,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -45,6 +48,41 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public String conflict(DatabaseAlreadyExistsException ex, Model model) {
         return errorView(model, HttpStatus.CONFLICT.value(), "Conflict", ex.getMessage());
+    }
+
+    /**
+     * Maps a request query/path value to the wrong type (e.g. {@code ?page=abc})
+     * to HTTP 400 instead of letting the catch-all turn it into a 500.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public String typeMismatch(MethodArgumentTypeMismatchException ex, Model model) {
+        log.debug("Bad argument for [{}] in request", ex.getName(), ex);
+        return errorView(model, HttpStatus.BAD_REQUEST.value(), "Bad Request",
+                "Invalid value for parameter \"" + ex.getName() + "\"");
+    }
+
+    /**
+     * Maps an unsupported HTTP method (e.g. DELETE on a read-only route) to
+     * HTTP 405 instead of a 500.
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    public String wrongMethod(HttpRequestMethodNotSupportedException ex, Model model) {
+        log.debug("Method not supported for {}", ex.getMethod(), ex);
+        return errorView(model, HttpStatus.METHOD_NOT_ALLOWED.value(), "Method Not Allowed",
+                "HTTP method \"" + ex.getMethod() + "\" is not supported for this resource");
+    }
+
+    /**
+     * Maps failed form binding to HTTP 400.
+     */
+    @ExceptionHandler(BindException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public String bindFailure(BindException ex, Model model) {
+        log.debug("Bad request because of invalid binding", ex);
+        return errorView(model, HttpStatus.BAD_REQUEST.value(), "Bad Request",
+                "The submitted values could not be bound to the request");
     }
 
     /**

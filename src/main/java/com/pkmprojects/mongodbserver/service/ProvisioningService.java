@@ -357,9 +357,17 @@ public class ProvisioningService {
         Map<String, ManagedDatabase> byName = managedDatabaseRepository.findAll().stream()
                 .collect(Collectors.toMap(ManagedDatabase::getDbName, Function.identity(), (a, b) -> a, LinkedHashMap::new));
 
-        Map<String, Long> sizes = mongoDatabaseRepository.getDatabaseSizes();
+        Map<String, Long> sizes = readDatabaseSizes();
 
-        return mongoDatabaseRepository.listDatabaseNames().stream()
+        List<String> dbNames;
+        try {
+            dbNames = mongoDatabaseRepository.listDatabaseNames();
+        } catch (MongoException e) {
+            log.error("Could not list databases on the MongoDB server", e);
+            throw new ProvisioningException("Could not list databases on the MongoDB server", e);
+        }
+
+        return dbNames.stream()
                 .filter(dbName -> !MongoNameValidator.SYSTEM_DATABASES.contains(dbName.toLowerCase(Locale.ROOT)))
                 .map(dbName -> toInfo(dbName, byName.get(dbName), collectionCount(dbName), null,
                         sizes.getOrDefault(dbName, 0L)))
@@ -385,7 +393,7 @@ public class ProvisioningService {
         if (md != null && md.getStoredPassword() != null) {
             connectionString = buildConnectionString(md.getUserName(), md.getStoredPassword(), dbName);
         }
-        long size = mongoDatabaseRepository.getDatabaseSizes().getOrDefault(dbName, 0L);
+        long size = readDatabaseSizes().getOrDefault(dbName, 0L);
         return toInfo(dbName, md, collectionCount(dbName), connectionString, size);
     }
 
@@ -464,8 +472,26 @@ public class ProvisioningService {
     private int collectionCount(String dbName) {
         try {
             return mongoDatabaseRepository.listCollectionNames(dbName).size();
-        } catch (MongoCommandException e) {
+        } catch (MongoException e) {
+            // A collection listing failing for one database (e.g. the server is
+            // briefly unreachable) must not fail the whole dashboard page with a
+            // 500 - degrade to "unknown" for that row and say so in the log.
+            log.warn("Could not count collections of {}; leaving count blank", dbName, e);
             return 0;
+        }
+    }
+
+    /**
+     * Reads database sizes, translating a driver failure (timeout, unreachable
+     * server) into a {@link ProvisioningException} instead of letting a raw
+     * {@link MongoException} escape to the error handler as an opaque 500.
+     */
+    private Map<String, Long> readDatabaseSizes() {
+        try {
+            return mongoDatabaseRepository.getDatabaseSizes();
+        } catch (MongoException e) {
+            log.error("Could not read database sizes from the MongoDB server", e);
+            throw new ProvisioningException("Could not read database sizes", e);
         }
     }
 

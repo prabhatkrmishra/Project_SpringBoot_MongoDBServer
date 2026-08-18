@@ -30,7 +30,6 @@
             <a class="sidebar-link" th:classappend="${page == 'activity'} ? 'active'"
                th:href="@{/activity}">
                 <i class="bi bi-clock-history"></i> Activity
-                <span class="sidebar-badge" th:if="${activityCount > 0}" th:text="${activityCount}">3</span>
             </a>
             <a class="sidebar-link" th:classappend="${page == 'health'} ? 'active'"
                th:href="@{/health}">

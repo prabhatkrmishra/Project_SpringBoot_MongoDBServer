@@ -1,6 +1,6 @@
 package com.pkmprojects.mongodbserver.service;
 
-import com.mongodb.MongoCommandException;
+import com.mongodb.MongoException;
 import com.pkmprojects.mongodbserver.dto.CollectionInfo;
 import com.pkmprojects.mongodbserver.dto.DocumentPage;
 import com.pkmprojects.mongodbserver.error.DatabaseNotFoundException;
@@ -94,7 +94,7 @@ public class ExplorationService {
     private long countDocuments(String dbName, String collectionName) {
         try {
             return mongoDatabaseRepository.countDocuments(dbName, collectionName);
-        } catch (MongoCommandException e) {
+        } catch (MongoException e) {
             log.warn("Could not count documents in {}.{}", dbName, collectionName, e);
             throw new ProvisioningException("Could not read collection '" + collectionName + "'", e);
         }

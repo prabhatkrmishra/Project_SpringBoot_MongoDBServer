@@ -94,7 +94,7 @@ public class WebhookNotifier {
             // Notifications are best-effort. A failure to read webhook configs
             // (or a rejected submit during shutdown) must never fail the admin
             // action that triggered the event.
-            log.warn("Could not fan out event {} to webhooks: {}", event.getEventType(), e.getMessage());
+            log.warn("Could not fan out event {} to webhooks", event.getEventType(), e);
         }
     }
 
