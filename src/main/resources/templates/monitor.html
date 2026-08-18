@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/nav :: head('Monitor')}"></head>
+<body>
+    <div class="layout">
+        <aside th:replace="~{fragments/nav :: nav('monitor')}"></aside>
+
+        <div class="main">
+            <main th:replace="~{fragments/nav :: flash}"></main>
+
+            <main class="container-xxl py-4">
+                <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                    <div>
+                        <h1 class="mb-1">Live monitoring</h1>
+                        <p class="mb-0 text-body-secondary">Real-time activity for the connected MongoDB server,
+                            refreshed every 2 seconds.</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span id="streamStatus" class="badge badge-soft-secondary">
+                            <span id="streamDot" class="live-dot"></span> Connecting…
+                        </span>
+                        <a class="btn btn-sm btn-outline-secondary" th:href="@{/health}">
+                            <i class="bi bi-heart-pulse"></i> Health
+                        </a>
+                    </div>
+                </div>
+
+                <section class="card shadow-sm mb-4" id="serverCard">
+                    <div class="card-header bg-transparent d-flex align-items-center gap-2">
+                        <i class="bi bi-broadcast text-success"></i>
+                        <span class="fw-medium">Server</span>
+                        <span id="reachableBadge" class="badge badge-soft-secondary ms-auto">…</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Version</div>
+                                    <div class="health-metric-value" id="versionValue">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Uptime</div>
+                                    <div class="health-metric-value" id="uptimeValue">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Connections</div>
+                                    <div class="health-metric-value" id="connectionsValue">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Last updated</div>
+                                    <div class="health-metric-value small" id="lastUpdatedValue">—</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card shadow-sm mb-4" id="opsCard">
+                    <div class="card-header bg-transparent d-flex align-items-center gap-2">
+                        <i class="bi bi-activity text-primary"></i>
+                        <span class="fw-medium">Operations</span>
+                        <span class="badge badge-soft-info ms-auto">per second</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Insert</div>
+                                    <div class="health-metric-value" id="opsInsert">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Query</div>
+                                    <div class="health-metric-value" id="opsQuery">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Update</div>
+                                    <div class="health-metric-value" id="opsUpdate">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Delete</div>
+                                    <div class="health-metric-value" id="opsDelete">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Command</div>
+                                    <div class="health-metric-value" id="opsCommand">—</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="row g-4 mb-4">
+                    <div class="col-lg-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-transparent d-flex align-items-center gap-2">
+                                <i class="bi bi-arrow-left-right text-success"></i>
+                                <span class="fw-medium">Network</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="health-metric">
+                                            <div class="health-metric-label">In</div>
+                                            <div class="health-metric-value" id="networkIn">—</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="health-metric">
+                                            <div class="health-metric-label">Out</div>
+                                            <div class="health-metric-value" id="networkOut">—</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-transparent d-flex align-items-center gap-2">
+                                <i class="bi bi-memory text-warning"></i>
+                                <span class="fw-medium">Memory</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="health-metric">
+                                            <div class="health-metric-label">Resident</div>
+                                            <div class="health-metric-value" id="memResident">—</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="health-metric">
+                                            <div class="health-metric-label">Virtual</div>
+                                            <div class="health-metric-value" id="memVirtual">—</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-transparent d-flex align-items-center gap-2">
+                                <i class="bi bi-layers text-primary"></i>
+                                <span class="fw-medium">Databases</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="health-metric">
+                                            <div class="health-metric-label">Count</div>
+                                            <div class="health-metric-value" id="databaseCount">—</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="health-metric">
+                                            <div class="health-metric-label">Storage</div>
+                                            <div class="health-metric-value" id="totalStorage">—</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card shadow-sm mb-4" id="lockCard">
+                    <div class="card-header bg-transparent d-flex align-items-center gap-2">
+                        <i class="bi bi-lock text-danger"></i>
+                        <span class="fw-medium">Global lock</span>
+                        <span class="badge badge-soft-info ms-auto">waiting queues / active clients</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Queue total</div>
+                                    <div class="health-metric-value" id="lockQueueTotal">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Queue readers</div>
+                                    <div class="health-metric-value" id="lockQueueReaders">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Queue writers</div>
+                                    <div class="health-metric-value" id="lockQueueWriters">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Active total</div>
+                                    <div class="health-metric-value" id="lockActiveTotal">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Active readers</div>
+                                    <div class="health-metric-value" id="lockActiveReaders">—</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-4 col-lg-2">
+                                <div class="health-metric">
+                                    <div class="health-metric-label">Active writers</div>
+                                    <div class="health-metric-value" id="lockActiveWriters">—</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        const streamUrl = /*[[@{/monitor/stream}]]*/ '/monitor/stream';
+
+        const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString());
+        const fmtRate = (n) => (n == null ? '—' : Number(n).toLocaleString() + '/s');
+        const fmtBytes = (n) => {
+            if (n == null) return '—';
+            if (n < 1024) return n + ' B/s';
+            if (n < 1048576) return (n / 1024).toFixed(1) + ' KB/s';
+            return (n / 1048576).toFixed(1) + ' MB/s';
+        };
+        const fmtMb = (n) => (n == null ? '—' : Number(n).toLocaleString() + ' MB');
+        const fmtUptime = (s) => {
+            if (s == null) return '—';
+            const d = Math.floor(s / 86400); s -= d * 86400;
+            const h = Math.floor(s / 3600); s -= h * 3600;
+            const m = Math.floor(s / 60); s -= m * 60;
+            if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+            if (h > 0) return h + 'h ' + m + 'm';
+            if (m > 0) return m + 'm ' + s + 's';
+            return s + 's';
+        };
+
+        function set(id, value) {
+            document.getElementById(id).textContent = value;
+        }
+
+        function render(s) {
+            if (s.reachable) {
+                set('reachableBadge', 'Online');
+                document.getElementById('reachableBadge').className = 'badge badge-soft-success';
+            } else {
+                set('reachableBadge', 'Unreachable');
+                document.getElementById('reachableBadge').className = 'badge badge-soft-danger';
+            }
+            set('versionValue', s.version || '—');
+            set('uptimeValue', fmtUptime(s.uptimeSeconds));
+            set('connectionsValue', fmtNum(s.connectionCount));
+            set('lastUpdatedValue', new Date(s.measuredAt).toLocaleTimeString());
+
+            if (s.ops) {
+                set('opsInsert', fmtRate(s.ops.insert));
+                set('opsQuery', fmtRate(s.ops.query));
+                set('opsUpdate', fmtRate(s.ops.update));
+                set('opsDelete', fmtRate(s.ops.delete));
+                set('opsCommand', fmtRate(s.ops.command));
+            } else {
+                ['opsInsert', 'opsQuery', 'opsUpdate', 'opsDelete', 'opsCommand'].forEach(id => set(id, '—'));
+            }
+
+            set('networkIn', s.network ? fmtBytes(s.network.bytesInPerSecond) : '—');
+            set('networkOut', s.network ? fmtBytes(s.network.bytesOutPerSecond) : '—');
+            set('memResident', s.mem ? fmtMb(s.mem.residentMb) : '—');
+            set('memVirtual', s.mem ? fmtMb(s.mem.virtualMb) : '—');
+            set('databaseCount', fmtNum(s.databaseCount));
+            set('totalStorage', s.totalStorageBytes == null ? '—' : formatStorage(s.totalStorageBytes));
+
+            if (s.lock) {
+                set('lockQueueTotal', fmtNum(s.lock.queueTotal));
+                set('lockQueueReaders', fmtNum(s.lock.queueReaders));
+                set('lockQueueWriters', fmtNum(s.lock.queueWriters));
+                set('lockActiveTotal', fmtNum(s.lock.activeClientsTotal));
+                set('lockActiveReaders', fmtNum(s.lock.activeClientsReaders));
+                set('lockActiveWriters', fmtNum(s.lock.activeClientsWriters));
+            } else {
+                ['lockQueueTotal', 'lockQueueReaders', 'lockQueueWriters',
+                 'lockActiveTotal', 'lockActiveReaders', 'lockActiveWriters'].forEach(id => set(id, '—'));
+            }
+        }
+
+        function formatStorage(n) {
+            if (n < 1024) return n + ' B';
+            if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+            if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+            return (n / 1073741824).toFixed(2) + ' GB';
+        }
+
+        function markStream(ok) {
+            const dot = document.getElementById('streamDot');
+            const status = document.getElementById('streamStatus');
+            dot.classList.toggle('live-dot-off', !ok);
+            dot.classList.toggle('live-dot', ok);
+            status.textContent = ok ? 'Live' : 'Reconnecting…';
+            status.className = ok ? 'badge badge-soft-success' : 'badge badge-soft-warning';
+        }
+
+        const source = new EventSource(streamUrl);
+        source.addEventListener('tick', (event) => {
+            markStream(true);
+            render(JSON.parse(event.data));
+        });
+        source.onerror = () => markStream(false);
+    </script>
+</body>
+</html>

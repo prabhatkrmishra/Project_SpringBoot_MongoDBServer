@@ -36,6 +36,10 @@
                th:href="@{/health}">
                 <i class="bi bi-heart-pulse"></i> Health
             </a>
+            <a class="sidebar-link" th:classappend="${page == 'monitor'} ? 'active'"
+               th:href="@{/monitor}">
+                <i class="bi bi-graph-up-arrow"></i> Monitor
+            </a>
             <a class="sidebar-link" th:href="@{/mongo-express}">
                 <i class="bi bi-box-arrow-up-right"></i> Mongo Express
             </a>

@@ -808,6 +808,31 @@ a {
 }
 
 /* --------------------------------------------------------------------------
+    15c. Live monitor
+   -------------------------------------------------------------------------- */
+.live-dot {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: #198754;
+    animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+.live-dot-off {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: #dc3545;
+}
+
+@keyframes live-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+/* --------------------------------------------------------------------------
     16. Documents (collection explorer)
    -------------------------------------------------------------------------- */
 .documents {
