@@ -160,13 +160,13 @@ class MongoDatabaseRepositoryTest {
     void getDatabaseSizesIncreasesAfterInsertingDocuments() {
         repository.createDatabase("testapp");
         repository.createCollection("testapp", "items");
-        long sizeBefore = repository.getDatabaseSizes().getOrDefault("testapp", 0L);
+        long sizeBefore = repository.getDatabaseDataSize("testapp");
 
         for (int i = 0; i < 1000; i++) {
             rootClient.getDatabase("testapp").getCollection("items")
                     .insertOne(new Document("name", "item-" + i).append("value", "x".repeat(200)));
         }
-        long sizeAfter = repository.getDatabaseSizes().getOrDefault("testapp", 0L);
+        long sizeAfter = repository.getDatabaseDataSize("testapp");
 
         assertThat(sizeAfter).isGreaterThan(sizeBefore);
     }
