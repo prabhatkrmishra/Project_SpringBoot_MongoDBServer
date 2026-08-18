@@ -367,16 +367,24 @@ public class ImportExportService {
 
     /**
      * Cells starting with these characters can be interpreted as spreadsheet
-     * formulas (CWE-1236). A leading {@code '} neutralizes them. Negative
-     * numbers ({@code -}) are left untouched because they are far more common
-     * than '-' formulas.
+     * formulas (CWE-1236). A leading {@code '} neutralizes them. A leading
+     * {@code -} is neutralized too, unless the whole cell is a plain number
+     * (e.g. "-5"), so common negative values keep working while expressions
+     * like "-2+3" or "--cmd" are still defused.
      */
     private static boolean startsWithFormulaChar(String value) {
         if (value.isEmpty()) {
             return false;
         }
         char first = value.charAt(0);
-        return first == '=' || first == '+' || first == '@' || first == '\t' || first == '\r';
+        if (first == '=' || first == '+' || first == '@' || first == '\t' || first == '\r') {
+            return true;
+        }
+        return first == '-' && !isPlainNumber(value);
+    }
+
+    private static boolean isPlainNumber(String value) {
+        return value.matches("[+-]?\\d+(\\.\\d+)?([eE][+-]?\\d+)?");
     }
 
     private void requireDatabase(String dbName) {

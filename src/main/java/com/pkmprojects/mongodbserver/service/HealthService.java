@@ -43,7 +43,8 @@ public class HealthService {
                 uptimeSeconds = toLong(status.get("uptime"));
                 Document connections = status.get("connections", Document.class);
                 if (connections != null) {
-                    connectionCount = connections.getInteger("current", 0);
+                    Object current = connections.get("current");
+                    connectionCount = current instanceof Number number ? number.intValue() : 0;
                 }
             } catch (MongoException e) {
                 log.warn("serverStatus unavailable for connected MongoDB (insufficient privileges?)", e);

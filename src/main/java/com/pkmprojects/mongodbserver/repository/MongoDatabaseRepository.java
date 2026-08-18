@@ -46,7 +46,7 @@ public class MongoDatabaseRepository {
         mongoClient.listDatabases().forEach(doc -> {
             String name = doc.getString("name");
             if (name != null) {
-                sizes.put(name, doc.get("storageSize", 0L));
+                sizes.put(name, ((Number) doc.get("storageSize", 0L)).longValue());
             }
         });
         return sizes;

@@ -61,7 +61,7 @@ public class MonitorService {
             uptimeSeconds = toLong(status.get("uptime"));
             Document connections = status.get("connections", Document.class);
             if (connections != null) {
-                connectionCount = connections.getInteger("current", 0);
+                connectionCount = toInteger(connections.get("current"));
             }
             mem = readMem(status);
             lock = readLock(status);
@@ -218,6 +218,10 @@ public class MonitorService {
 
     private static Long toLong(Object value) {
         return value instanceof Number number ? number.longValue() : null;
+    }
+
+    private static Integer toInteger(Object value) {
+        return value instanceof Number number ? number.intValue() : null;
     }
 
     private static long toLong(Object value, long fallback) {

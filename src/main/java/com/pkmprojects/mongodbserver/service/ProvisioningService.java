@@ -303,10 +303,19 @@ public class ProvisioningService {
         return mongoDatabaseRepository.getUsers(dbName).stream()
                 .map(doc -> new DatabaseUser(
                         doc.getString("user"),
-                        doc.getList("roles", Document.class).stream()
-                                .map(role -> role.getString("role") + ":" + role.getString("db"))
-                                .toList(),
+                        roleNamesOf(doc),
                         doc.getString("db")))
+                .toList();
+    }
+
+    private static List<String> roleNamesOf(Document doc) {
+        List<Document> roles = doc.getList("roles", Document.class);
+        if (roles == null) {
+            return List.of();
+        }
+        return roles.stream()
+                .map(role -> (role.getString("role") == null ? "" : role.getString("role"))
+                        + ":" + (role.getString("db") == null ? "" : role.getString("db")))
                 .toList();
     }
 

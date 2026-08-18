@@ -391,7 +391,8 @@ class ImportExportServiceTest {
                 .append("qty", "+1")
                 .append("mail", "@cmd")
                 .append("tab", "\t=x")
-                .append("neg", -5)));
+                .append("neg", -5)
+                .append("expr", "-2+3")));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         service.writeAllDocumentsAsCsv("myapp", "users", out);
@@ -401,7 +402,8 @@ class ImportExportServiceTest {
         assertThat(csv).contains("'+1");
         assertThat(csv).contains("'@cmd");
         assertThat(csv).contains("'\t=x");
-        assertThat(csv).contains(",-5\r\n");
+        assertThat(csv).contains(",-5,");
+        assertThat(csv).contains("'-2+3");
     }
 
     @Test

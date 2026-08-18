@@ -84,7 +84,7 @@ public class WebhookNotifier {
         try {
             List<WebhookConfig> matching = webhookConfigRepository.findByEnabledTrue().stream()
                     .filter(WebhookConfig::isEnabled)
-                    .filter(webhook -> webhook.getEventTypes().isEmpty()
+                    .filter(webhook -> webhook.getEventTypes() == null || webhook.getEventTypes().isEmpty()
                             || webhook.getEventTypes().contains(event.getEventType()))
                     .toList();
             for (WebhookConfig webhook : matching) {
