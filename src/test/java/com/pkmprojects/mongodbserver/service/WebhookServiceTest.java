@@ -98,6 +98,17 @@ class WebhookServiceTest {
     }
 
     @Test
+    void createWebhookTrimsSecretAndTreatsBlankAsNone() {
+        service.createWebhook(new WebhookForm("Slack", "https://example.com/hooks", "  hunter2  ", List.of()));
+        service.createWebhook(new WebhookForm("Ding", "https://example.com/hooks", "   ", List.of()));
+
+        ArgumentCaptor<WebhookConfig> captor = ArgumentCaptor.forClass(WebhookConfig.class);
+        verify(webhookConfigRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues().get(0).getSecret()).isEqualTo("hunter2");
+        assertThat(captor.getAllValues().get(1).getSecret()).isNull();
+    }
+
+    @Test
     void createWebhookRejectsBlankName() {
         assertThatThrownBy(() -> service.createWebhook(new WebhookForm(" ", "https://example.com/hooks", null, List.of())))
                 .isInstanceOf(NameNotAllowedException.class);

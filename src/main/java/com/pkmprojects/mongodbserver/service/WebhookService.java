@@ -55,8 +55,9 @@ public class WebhookService {
     public WebhookConfig createWebhook(WebhookForm form) {
         validate(form);
         List<String> eventTypes = form.eventTypes() == null ? List.of() : form.eventTypes();
+        String secret = normalizeSecret(form.secret());
         WebhookConfig webhook = new WebhookConfig(
-                form.name().trim(), form.url().trim(), form.secret(), eventTypes, true, clock.instant());
+                form.name().trim(), form.url().trim(), secret, eventTypes, true, clock.instant());
         WebhookConfig saved = webhookConfigRepository.save(webhook);
         audit(AuditEvent.WEBHOOK_CREATED, saved.getName(), clock.instant());
         log.info("Created webhook '{}'", saved.getName());
@@ -91,6 +92,14 @@ public class WebhookService {
     private WebhookConfig requireWebhook(String id) {
         return webhookConfigRepository.findById(id)
                 .orElseThrow(() -> new WebhookNotFoundException("Webhook not found"));
+    }
+
+    private static String normalizeSecret(String secret) {
+        if (secret == null) {
+            return null;
+        }
+        String trimmed = secret.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void validate(WebhookForm form) {

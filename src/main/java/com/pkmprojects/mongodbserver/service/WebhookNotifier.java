@@ -24,8 +24,10 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Delivers admin-action notifications to configured webhook endpoints. Listens
@@ -45,6 +47,7 @@ public class WebhookNotifier {
     static final int MAX_DELIVERY_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MILLIS = 500;
     private static final int MAX_CONCURRENT_DELIVERIES = 8;
+    private static final int MAX_QUEUED_DELIVERIES = 128;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
     private final WebhookConfigRepository webhookConfigRepository;
@@ -53,8 +56,13 @@ public class WebhookNotifier {
 
     @Autowired
     public WebhookNotifier(WebhookConfigRepository webhookConfigRepository, HttpClient httpClient) {
-        this(webhookConfigRepository, httpClient,
-                Executors.newFixedThreadPool(MAX_CONCURRENT_DELIVERIES));
+        this(webhookConfigRepository, httpClient, new ThreadPoolExecutor(
+                MAX_CONCURRENT_DELIVERIES, MAX_CONCURRENT_DELIVERIES, 0L, TimeUnit.MILLISECONDS,
+                // Bound the pending queue so a burst of events cannot grow memory
+                // without limit. Saturation rejects the submit, which onAuditEvent
+                // catches and logs - delivery is best-effort by design.
+                new ArrayBlockingQueue<>(MAX_QUEUED_DELIVERIES),
+                new ThreadPoolExecutor.AbortPolicy()));
     }
 
     WebhookNotifier(WebhookConfigRepository webhookConfigRepository, HttpClient httpClient,
